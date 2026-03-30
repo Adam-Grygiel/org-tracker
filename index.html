@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Org Points Portal</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0f1b35;
+  --navy-mid: #1a2d52;
+  --navy-light: #243a66;
+  --gold: #f0b429;
+  --gold-light: #fcd96a;
+  --gold-pale: #fef9ec;
+  --cream: #faf8f3;
+  --white: #ffffff;
+  --text: #0f1b35;
+  --text-muted: #5a6a8a;
+  --text-faint: #8e9fc0;
+  --border: #dde3f0;
+  --border-strong: #b8c4de;
+  --green: #1a7a4a;
+  --green-bg: #ecfaf3;
+  --red: #b91c1c;
+  --red-bg: #fef2f2;
+  --blue: #1d4ed8;
+  --blue-bg: #eff6ff;
+  --orange: #c2410c;
+  --orange-bg: #fff7ed;
+  --violet: #6d28d9;
+  --violet-bg: #f5f3ff;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 2px 12px rgba(15,27,53,0.08);
+  --shadow-md: 0 4px 24px rgba(15,27,53,0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); min-height: 100vh; font-size: 14px; }
+
+/* ── LOADING ── */
+#loading-screen {
+  position: fixed; inset: 0; background: var(--navy);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px; z-index: 9999;
+  transition: opacity 0.4s;
+}
+.loading-logo { font-family: 'Fraunces', serif; font-size: 28px; color: var(--gold); }
+.loading-spinner {
+  width: 32px; height: 32px; border: 3px solid rgba(240,180,41,0.2);
+  border-top-color: var(--gold); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-msg { font-size: 13px; color: rgba(255,255,255,0.4); }
+
+/* ── LOGIN ── */
+#login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 60%, #1e3a7a 100%); padding: 24px; }
+.login-card { background: white; border-radius: 20px; padding: 48px 40px; width: 100%; max-width: 420px; box-shadow: 0 24px 80px rgba(0,0,0,0.25); }
+.login-logo { text-align: center; margin-bottom: 32px; }
+.login-logo .org-name { font-family: 'Fraunces', serif; font-size: 28px; color: var(--navy); line-height: 1.1; margin-bottom: 4px; }
+.login-logo .org-sub { font-size: 12px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.star-badge { width: 56px; height: 56px; background: var(--navy); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 24px; }
+.login-form label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; margin-top: 18px; }
+.login-form input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: white; outline: none; transition: border-color 0.15s; }
+.login-form input:focus { border-color: var(--navy); }
+.btn-primary { width: 100%; padding: 12px; background: var(--navy); color: white; border: none; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 24px; transition: background 0.15s, transform 0.1s; }
+.btn-primary:hover { background: var(--navy-mid); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.login-error { margin-top: 12px; padding: 10px 14px; background: var(--red-bg); border-radius: var(--radius-sm); font-size: 13px; color: var(--red); display: none; }
+
+/* ── APP SHELL ── */
+#app { display: none; min-height: 100vh; }
+.topbar { background: var(--navy); color: white; padding: 0 24px; height: 58px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-logo { font-family: 'Fraunces', serif; font-size: 18px; letter-spacing: -0.02em; }
+.role-badge { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 20px; background: rgba(255,255,255,0.15); }
+.role-badge.admin { background: var(--gold); color: var(--navy); }
+.role-badge.ec { background: var(--violet-bg); color: var(--violet); }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.user-pill { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(255,255,255,0.85); }
+.avatar-sm { width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: var(--navy); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+.avatar-sm.ec { background: var(--violet-bg); color: var(--violet); }
+.btn-logout { background: none; border: 1px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.7); padding: 5px 12px; border-radius: 20px; cursor: pointer; font-size: 12px; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+.btn-logout:hover { background: rgba(255,255,255,0.1); color: white; }
+
+/* ── NAV ── */
+.nav-tabs { background: white; border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; gap: 0; overflow-x: auto; }
+.nav-tab { padding: 14px 18px; font-size: 13px; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2.5px solid transparent; white-space: nowrap; transition: all 0.15s; user-select: none; position: relative; }
+.nav-tab:hover { color: var(--text); }
+.nav-tab.active { color: var(--navy); border-bottom-color: var(--navy); }
+.nav-tab .tab-badge { position: absolute; top: 10px; right: 8px; background: var(--red); color: white; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 10px; }
+
+/* ── MAIN ── */
+.main { padding: 28px 24px; max-width: 1100px; margin: 0 auto; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── CARDS ── */
+.card { background: white; border-radius: var(--radius); border: 1px solid var(--border); padding: 20px 24px; margin-bottom: 16px; box-shadow: var(--shadow); }
+.card-title { font-family: 'Fraunces', serif; font-size: 16px; color: var(--navy); margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+
+/* ── STAT GRID ── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+.stat-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 6px; }
+.stat-value { font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; color: var(--navy); line-height: 1; }
+.stat-sub { font-size: 11px; color: var(--text-faint); margin-top: 4px; }
+
+/* ── HERO ── */
+.points-hero { background: linear-gradient(135deg, var(--navy) 0%, #1e3a7a 100%); border-radius: 16px; padding: 32px; color: white; margin-bottom: 20px; position: relative; overflow: hidden; }
+.points-hero::after { content: ''; position: absolute; right: -20px; top: -20px; width: 160px; height: 160px; border-radius: 50%; background: rgba(240,180,41,0.1); }
+.points-hero-label { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.7; }
+.points-hero-value { font-family: 'DM Mono', monospace; font-size: 56px; font-weight: 500; color: var(--gold); line-height: 1; margin: 8px 0 4px; }
+.points-hero-name { font-family: 'Fraunces', serif; font-size: 20px; opacity: 0.9; }
+.progress-bar-wrap { margin-top: 20px; background: rgba(255,255,255,0.15); border-radius: 100px; height: 6px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--gold); border-radius: 100px; transition: width 0.6s ease; }
+.progress-label { display: flex; justify-content: space-between; font-size: 11px; opacity: 0.7; margin-top: 6px; }
+
+/* ── TABLES ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead th { text-align: left; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 10px 12px; border-bottom: 1px solid var(--border); background: #f8f9fc; }
+tbody tr { border-bottom: 1px solid #f0f2f8; transition: background 0.1s; }
+tbody tr:hover { background: #f8f9fc; }
+tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
+
+/* ── BADGES ── */
+.badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+.badge-pending { background: var(--orange-bg); color: var(--orange); }
+.badge-approved { background: var(--green-bg); color: var(--green); }
+.badge-rejected { background: var(--red-bg); color: var(--red); }
+.badge-service { background: var(--blue-bg); color: var(--blue); }
+.badge-attendance { background: #f0fdf4; color: #166534; }
+.badge-event { background: #fdf4ff; color: #7e22ce; }
+.badge-custom { background: var(--gold-pale); color: #92400e; }
+.badge-admin { background: var(--gold-pale); color: #92400e; }
+.badge-meeting { background: #f0fdf4; color: #166534; }
+
+/* ── FORMS ── */
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.form-input, .form-select, .form-textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: white; outline: none; transition: border-color 0.15s; }
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--navy); }
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+/* ── BUTTONS ── */
+.btn { padding: 9px 18px; border-radius: var(--radius-sm); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; border: 1.5px solid transparent; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-navy { background: var(--navy); color: white; border-color: var(--navy); }
+.btn-navy:hover:not(:disabled) { background: var(--navy-mid); }
+.btn-gold { background: var(--gold); color: var(--navy); border-color: var(--gold); }
+.btn-gold:hover:not(:disabled) { background: var(--gold-light); }
+.btn-outline { background: white; color: var(--navy); border-color: var(--border-strong); }
+.btn-outline:hover:not(:disabled) { border-color: var(--navy); }
+.btn-danger { background: white; color: var(--red); border-color: #fca5a5; }
+.btn-danger:hover:not(:disabled) { background: var(--red-bg); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.btn-success { background: var(--green-bg); color: var(--green); border-color: #86efac; }
+.btn-success:hover:not(:disabled) { background: #d1fae5; }
+
+/* ── POINTS CHIP ── */
+.points-chip { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; color: var(--navy); background: var(--gold-pale); padding: 2px 8px; border-radius: 20px; border: 1px solid var(--gold-light); }
+
+/* ── CALENDAR ── */
+.calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cal-nav-btn { background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; cursor: pointer; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+.cal-nav-btn:hover { border-color: var(--navy); color: var(--navy); }
+.cal-month-label { font-family: 'Fraunces', serif; font-size: 18px; color: var(--navy); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.cal-day-name { text-align: center; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 8px 0; }
+.cal-cell { min-height: 70px; padding: 6px; border-radius: var(--radius-sm); border: 1px solid transparent; transition: all 0.12s; background: white; }
+.cal-cell:hover { border-color: var(--border); background: #f8f9fc; }
+.cal-cell.other-month { opacity: 0.3; }
+.cal-cell.today { border-color: var(--gold); background: var(--gold-pale); }
+.cal-date { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-bottom: 4px; }
+.cal-cell.today .cal-date { color: var(--navy); font-weight: 600; }
+.cal-event-dot { font-size: 10px; padding: 2px 5px; border-radius: 3px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--navy); color: white; }
+.cal-event-dot.service { background: var(--blue); }
+.cal-event-dot.meeting { background: var(--green); }
+.cal-event-dot.event { background: var(--violet); }
+
+/* ── TEAMS BANNER ── */
+.teams-link-box { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: #f8f9fc; margin-bottom: 16px; flex-wrap: wrap; }
+.teams-icon { width: 32px; height: 32px; background: #6264a7; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.teams-link-box input { flex: 1; border: none; background: none; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-muted); outline: none; min-width: 0; min-width: 160px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.status-dot.on { background: var(--green); box-shadow: 0 0 0 2px var(--green-bg); }
+.status-dot.off { background: var(--text-faint); }
+
+/* ── RSVP ── */
+.rsvp-btn { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; border: 1.5px solid; transition: all 0.12s; font-family: 'DM Sans', sans-serif; }
+.rsvp-go { background: var(--green-bg); color: var(--green); border-color: #86efac; }
+.rsvp-go:hover { background: #d1fae5; }
+.rsvp-no { background: white; color: var(--text-muted); border-color: var(--border-strong); }
+.rsvp-no:hover { border-color: var(--navy); color: var(--navy); }
+
+/* ── MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(15,27,53,0.5); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; opacity: 0; pointer-events: none; transition: opacity 0.2s; backdrop-filter: blur(2px); }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal { background: white; border-radius: 16px; padding: 28px; width: 100%; max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); transform: scale(0.96); transition: transform 0.2s; }
+.modal-overlay.open .modal { transform: scale(1); }
+.modal-title { font-family: 'Fraunces', serif; font-size: 18px; color: var(--navy); margin-bottom: 20px; }
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+/* ── ALERT ── */
+.alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; border-left: 3px solid; }
+.alert-info { background: var(--blue-bg); color: var(--blue); border-color: #93c5fd; }
+.alert-warn { background: var(--gold-pale); color: #92400e; border-color: var(--gold); }
+
+/* ── TOAST ── */
+#toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: var(--radius); font-size: 13px; font-weight: 500; z-index: 999; transform: translateY(80px); opacity: 0; transition: all 0.25s; box-shadow: var(--shadow-md); }
+#toast.show { transform: translateY(0); opacity: 1; }
+#toast.success { background: var(--navy); color: white; }
+#toast.error { background: var(--red); color: white; }
+#toast.gold { background: var(--gold); color: var(--navy); }
+
+/* ── SECTION HEADER ── */
+.section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.section-title { font-family: 'Fraunces', serif; font-size: 20px; color: var(--navy); }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-faint); font-size: 13px; }
+.action-btns { display: flex; gap: 6px; }
+.member-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--navy); color: white; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; flex-shrink: 0; }
+.member-avatar.ec { background: var(--violet); }
+.member-name-cell { display: flex; align-items: center; gap: 8px; }
+
+@media (max-width: 600px) {
+  .main { padding: 16px; }
+  .form-row { grid-template-columns: 1fr; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .points-hero-value { font-size: 40px; }
+  .topbar { padding: 0 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div class="loading-logo">⭐ OrgTracker</div>
+  <div class="loading-spinner"></div>
+  <div class="loading-msg" id="loading-msg">Connecting to database…</div>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen" style="display:none">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="star-badge">⭐</div>
+      <div class="org-name">Student Org<br>Points Portal</div>
+      <div class="org-sub">Higher Education · Member Tracker</div>
+    </div>
+    <div class="login-form">
+      <label>Username</label>
+      <input type="text" id="l-user" placeholder="your.username" />
+      <label>Password</label>
+      <input type="password" id="l-pass" placeholder="••••••••" />
+      <div class="login-error" id="l-err">Incorrect credentials. Please try again.</div>
+      <button class="btn-primary" id="signin-btn" onclick="doLogin()">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">⭐ OrgTracker</div>
+      <div class="role-badge" id="role-badge">Member</div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-pill">
+        <div class="avatar-sm" id="top-avatar">?</div>
+        <span id="top-name">—</span>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs" id="nav-tabs"></div>
+
+  <div class="main">
+
+    <!-- MY POINTS -->
+    <div class="page" id="page-mypoints">
+      <div class="points-hero">
+        <div class="points-hero-label">Your Points</div>
+        <div class="points-hero-value" id="ph-val">0</div>
+        <div class="points-hero-name" id="ph-name">—</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="ph-bar" style="width:0%"></div>
+        </div>
+        <div class="progress-label">
+          <span>0 pts</span>
+          <span id="ph-goal-lbl">Goal: 100 pts</span>
+        </div>
+      </div>
+      <div class="stat-grid" id="my-stat-grid"></div>
+      <div class="card">
+        <div class="card-title">Activity History</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Points</th><th>Status</th></tr></thead>
+            <tbody id="my-hist-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="page" id="page-submit">
+      <div class="section-header">
+        <div class="section-title">Submit Service Points</div>
+      </div>
+      <div class="card">
+        <div class="alert alert-info">ℹ️ Points are awarded after an officer or EC member approves your submission.</div>
+        <div class="form-group">
+          <label class="form-label">Activity Type</label>
+          <select class="form-select" id="sub-type">
+            <option value="service">Service Hours</option>
+            <option value="event">Event Participation</option>
+            <option value="attendance">Meeting Attendance</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-input" id="sub-date"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hours / Points Requested</label>
+            <input type="number" class="form-input" id="sub-hrs" min="1" max="40" placeholder="e.g. 3"/>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Organization / Event Name</label>
+          <input type="text" class="form-input" id="sub-org" placeholder="Where did you volunteer or participate?"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea class="form-textarea" id="sub-desc" placeholder="What did you do?"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Supervisor / Verifier (optional)</label>
+          <input type="text" class="form-input" id="sub-sup" placeholder="Name of someone who can verify"/>
+        </div>
+        <button class="btn btn-navy" id="sub-btn" onclick="submitPts()">Submit for Review →</button>
+      </div>
+    </div>
+
+    <!-- CALENDAR -->
+    <div class="page" id="page-calendar">
+      <div class="section-header">
+        <div class="section-title">Events Calendar</div>
+        <button class="btn btn-navy btn-sm" id="cal-add-btn" style="display:none" onclick="openModal('modal-event')">+ Add Event</button>
+      </div>
+      <div class="teams-link-box">
+        <div class="teams-icon">T</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:10px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Microsoft Teams / Outlook Calendar</div>
+          <input id="teams-url" placeholder="Paste your Teams channel or Outlook calendar link…"/>
+        </div>
+        <span id="teams-status-txt" style="font-size:12px;color:var(--text-muted);white-space:nowrap">
+          <span class="status-dot off" id="teams-dot"></span>Not connected
+        </span>
+        <button class="btn btn-outline btn-sm" onclick="saveTeams()">Save</button>
+        <button class="btn btn-sm" style="background:#6264a7;color:white;border:none;display:none" id="teams-open-btn" onclick="openTeams()">Open Teams ↗</button>
+      </div>
+      <div class="card">
+        <div class="calendar-header">
+          <button class="cal-nav-btn" onclick="calMv(-1)">← Prev</button>
+          <div class="cal-month-label" id="cal-lbl"></div>
+          <button class="cal-nav-btn" onclick="calMv(1)">Next →</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Upcoming Events</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date</th><th>Event</th><th>Type</th><th>Points</th><th>Going</th><th>RSVP</th></tr></thead>
+            <tbody id="ev-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD (EC / Admin) -->
+    <div class="page" id="page-dashboard">
+      <div class="section-header">
+        <div class="section-title" id="dash-title">Dashboard</div>
+      </div>
+      <div class="stat-grid" id="dash-stat-grid"></div>
+      <div class="card">
+        <div class="card-title">
+          Pending Submissions
+          <span class="badge badge-pending" id="pend-badge">0</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Submitted</th><th>Member</th><th>Category</th><th>Details</th><th>Pts Req.</th><th>Actions</th></tr></thead>
+            <tbody id="pend-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Leaderboard</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Member</th><th>Role</th><th>Total</th><th>Service</th><th>Attend.</th><th>Events</th><th>Custom</th></tr></thead>
+            <tbody id="lb-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MEMBERS (Admin) -->
+    <div class="page" id="page-members">
+      <div class="section-header">
+        <div class="section-title">Members</div>
+        <button class="btn btn-navy btn-sm" onclick="openModal('modal-member')">+ Add Member</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Total</th><th>Service</th><th>Attend.</th><th>Events</th><th>Custom</th><th></th></tr></thead>
+            <tbody id="mem-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AWARD (Admin / EC) -->
+    <div class="page" id="page-award">
+      <div class="section-header">
+        <div class="section-title">Award Points</div>
+      </div>
+      <div class="card" style="max-width:540px">
+        <div class="form-group">
+          <label class="form-label">Member</label>
+          <select class="form-select" id="aw-mem"></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select class="form-select" id="aw-cat" onchange="awCatChange()"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Points</label>
+            <input type="number" class="form-input" id="aw-pts" min="1" placeholder="e.g. 10"/>
+          </div>
+        </div>
+        <div class="form-group" id="aw-cust-grp" style="display:none">
+          <label class="form-label">Custom Category Name</label>
+          <input type="text" class="form-input" id="aw-cust-nm" placeholder="e.g. Fundraiser, Newsletter…"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Note</label>
+          <input type="text" class="form-input" id="aw-note" placeholder="Brief reason for awarding points"/>
+        </div>
+        <button class="btn btn-gold" id="aw-btn" onclick="awardPts()">Award Points ✦</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS (Admin only) -->
+    <div class="page" id="page-settings">
+      <div class="section-header">
+        <div class="section-title">Settings</div>
+      </div>
+      <div class="card" style="max-width:520px">
+        <div class="card-title">Semester Point Goal</div>
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-group">
+            <label class="form-label">Goal (points)</label>
+            <input type="number" class="form-input" id="set-goal" min="10" placeholder="100"/>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="saveGoal()">Save Goal</button>
+      </div>
+      <div class="card" style="max-width:520px">
+        <div class="card-title" style="margin-bottom:12px">
+          Custom Point Categories
+          <button class="btn btn-navy btn-sm" onclick="openModal('modal-cat')">+ Add</button>
+        </div>
+        <div id="cat-list"></div>
+        <div class="alert alert-info" style="margin-top:12px;margin-bottom:0">ℹ️ Custom categories appear in Award Points and on member dashboards.</div>
+      </div>
+      <div class="card" style="max-width:520px">
+        <div class="card-title">Change Admin Password</div>
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input type="password" class="form-input" id="new-pass"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm</label>
+            <input type="password" class="form-input" id="new-pass-confirm"/>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="changePass()">Update Password</button>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modal-event">
+  <div class="modal">
+    <div class="modal-title">Add Event</div>
+    <div class="form-group"><label class="form-label">Event Name</label><input type="text" class="form-input" id="ev-nm" placeholder="e.g. Community Cleanup Day"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="ev-dt"/></div>
+      <div class="form-group"><label class="form-label">Points (0 = info only)</label><input type="number" class="form-input" id="ev-pts" min="0" placeholder="10"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="ev-tp"><option value="meeting">Meeting</option><option value="service">Service</option><option value="event">Event</option></select></div>
+      <div class="form-group"><label class="form-label">Auto-award on RSVP date?</label><select class="form-select" id="ev-auto"><option value="yes">Yes — award automatically</option><option value="no">No — manual only</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ev-desc" placeholder="Details, location, etc."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-event')">Cancel</button>
+      <button class="btn btn-navy" onclick="saveEvent()">Add Event</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-member">
+  <div class="modal">
+    <div class="modal-title">Add Member</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">First Name</label><input type="text" class="form-input" id="nm-f" placeholder="First"/></div>
+      <div class="form-group"><label class="form-label">Last Name</label><input type="text" class="form-input" id="nm-l" placeholder="Last"/></div>
+    </div>
+    <div class="form-group"><label class="form-label">Username</label><input type="text" class="form-input" id="nm-u" placeholder="e.g. jsmith"/></div>
+    <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="nm-p" placeholder="Initial password"/></div>
+    <div class="form-group"><label class="form-label">Role</label><select class="form-select" id="nm-r"><option value="member">Member</option><option value="ec">Executive Committee</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-member')">Cancel</button>
+      <button class="btn btn-navy" onclick="saveMember()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cat">
+  <div class="modal">
+    <div class="modal-title">Add Custom Category</div>
+    <div class="form-group"><label class="form-label">Category Name</label><input type="text" class="form-input" id="cat-nm" placeholder="e.g. Fundraising, Newsletter, Leadership…"/></div>
+    <div class="form-group"><label class="form-label">Color</label>
+      <select class="form-select" id="cat-col">
+        <option value="gold">Gold</option><option value="violet">Violet</option>
+        <option value="emerald">Emerald</option><option value="rose">Rose</option><option value="blue">Blue</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-cat')">Cancel</button>
+      <button class="btn btn-navy" onclick="saveCat()">Add Category</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  CONFIG — REPLACE THESE WITH YOUR SUPABASE VALUES
+// ══════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://ajhmmqjfmqtfckzunrdh.supabase.co';   // e.g. https://abcxyz.supabase.co
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqaG1tcWpmbXF0ZmNrenVucmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDk2NzYsImV4cCI6MjA5MDQ4NTY3Nn0.Ibt-KqfwFkVJLuE0RCGoD78su_r4OLfEJM_GX34xjc8'; // long string starting with eyJ...
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let cu = null; // current user
+let settings = { point_goal: 100, teams_link: '' };
+let customCats = [];
+let calY = new Date().getFullYear();
+let calM = new Date().getMonth();
+
+const COLMAP = {
+  gold:    { bg:'#fef9ec', color:'#92400e', border:'#fcd96a' },
+  violet:  { bg:'#f5f3ff', color:'#6d28d9', border:'#c4b5fd' },
+  emerald: { bg:'#ecfdf5', color:'#065f46', border:'#6ee7b7' },
+  rose:    { bg:'#fff1f2', color:'#be123c', border:'#fda4af' },
+  blue:    { bg:'#eff6ff', color:'#1d4ed8', border:'#93c5fd' },
+};
+
+// ── Boot ──
+window.addEventListener('load', async () => {
+  setLoadMsg('Connecting to database…');
+  if (SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+    setLoadMsg('⚠ Not configured yet — see setup guide');
+    setTimeout(() => {
+      hideLoading();
+      document.getElementById('login-screen').style.display = 'flex';
+      toast('Configure your Supabase URL and key first. See the setup guide.', 'error');
+    }, 1800);
+    return;
+  }
+  try {
+    await loadSettings();
+    await loadCustomCats();
+    hideLoading();
+    document.getElementById('login-screen').style.display = 'flex';
+  } catch(e) {
+    setLoadMsg('⚠ Database connection failed — check your Supabase config');
+    console.error(e);
+  }
+});
+
+function setLoadMsg(m) { document.getElementById('loading-msg').textContent = m; }
+function hideLoading() {
+  const el = document.getElementById('loading-screen');
+  el.style.opacity = '0';
+  setTimeout(() => el.style.display = 'none', 400);
+}
+
+// ── Helpers ──
+function today() { return new Date().toISOString().split('T')[0]; }
+function gid() { return crypto.randomUUID ? crypto.randomUUID() : '_'+Math.random().toString(36).substr(2,9); }
+function ini(n) { return (n||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+function fmtDate(s) {
+  if (!s) return '—';
+  const d = new Date(s + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+function totalPts(m) {
+  return (m.pts_service||0) + (m.pts_attend||0) + (m.pts_event||0) + (m.custom_sum||0);
+}
+function catBadge(catKey, catLabel) {
+  const cls = { service:'badge-service', attendance:'badge-attendance', event:'badge-event', custom:'badge-custom', meeting:'badge-meeting' };
+  return `<span class="badge ${cls[catKey]||'badge-admin'}">${catLabel}</span>`;
+}
+function typeBadge(t) {
+  const labels = { service:'Service', attendance:'Attendance', event:'Event', meeting:'Meeting' };
+  const cls = { service:'badge-service', attendance:'badge-attendance', event:'badge-event', meeting:'badge-meeting' };
+  return `<span class="badge ${cls[t]||'badge-admin'}">${labels[t]||t}</span>`;
+}
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = `show ${type}`;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => { el.className = ''; }, 3400);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+
+// ── Settings ──
+async function loadSettings() {
+  const { data } = await db.from('settings').select('*');
+  if (data) data.forEach(r => { settings[r.key] = r.value; });
+}
+async function loadCustomCats() {
+  const { data } = await db.from('custom_categories').select('*').order('created_at');
+  customCats = data || [];
+}
+async function saveSetting(key, value) {
+  await db.from('settings').upsert({ key, value: String(value) });
+  settings[key] = String(value);
+}
+
+// ══════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════
+async function doLogin() {
+  const u = document.getElementById('l-user').value.trim();
+  const p = document.getElementById('l-pass').value;
+  const btn = document.getElementById('signin-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+
+  const { data, error } = await db.from('members').select('*').eq('username', u).eq('password', p).single();
+
+  if (error || !data) {
+    document.getElementById('l-err').style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Sign In';
+    return;
+  }
+  document.getElementById('l-err').style.display = 'none';
+  cu = data;
+  btn.disabled = false; btn.textContent = 'Sign In';
+  await initApp();
+}
+
+function doLogout() {
+  cu = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('l-user').value = '';
+  document.getElementById('l-pass').value = '';
+}
+
+document.getElementById('l-pass').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('l-user').addEventListener('keydown', e => { if(e.key==='Enter') document.getElementById('l-pass').focus(); });
+
+// ══════════════════════════════════════════════════════
+//  APP INIT
+// ══════════════════════════════════════════════════════
+async function initApp() {
+  await loadSettings();
+  await loadCustomCats();
+  await checkAutoAward();
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  const isAdmin = cu.role === 'admin';
+  const isEC    = cu.role === 'ec';
+  const canMgr  = isAdmin || isEC;
+
+  const ava = document.getElementById('top-avatar');
+  ava.textContent = ini(cu.name);
+  if (isEC) ava.classList.add('ec');
+
+  document.getElementById('top-name').textContent = cu.name;
+  const chip = document.getElementById('role-badge');
+  chip.textContent = { admin:'Admin', ec:'Executive Committee', member:'Member' }[cu.role];
+  chip.className = 'role-badge ' + cu.role;
+
+  const navItems = [];
+  if (!canMgr) { navItems.push({id:'mypoints',label:'My Points'}); navItems.push({id:'submit',label:'Submit Points'}); }
+  if (canMgr)  navItems.push({id:'dashboard',label:'Dashboard'});
+  navItems.push({id:'calendar',label:'Calendar'});
+  if (canMgr)  { navItems.push({id:'members',label:'Members'}); navItems.push({id:'award',label:'Award Points'}); }
+  if (isAdmin) navItems.push({id:'settings',label:'Settings'});
+
+  document.getElementById('nav-tabs').innerHTML = navItems.map(n =>
+    `<div class="nav-tab" data-p="${n.id}" onclick="showPage('${n.id}')">${n.label}</div>`
+  ).join('');
+
+  document.getElementById('cal-add-btn').style.display = canMgr ? '' : 'none';
+  document.getElementById('sub-date').value = today();
+
+  showPage(navItems[0].id);
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id)?.classList.add('active');
+  document.querySelectorAll(`.nav-tab[data-p="${id}"]`).forEach(t => t.classList.add('active'));
+  const fns = { mypoints:renderMyPts, dashboard:renderDash, members:renderMembers, calendar:renderCal, award:buildAwardSelects, settings:renderSettings };
+  fns[id]?.();
+}
+
+// ══════════════════════════════════════════════════════
+//  AUTO-AWARD (RSVP → points on event date)
+// ══════════════════════════════════════════════════════
+async function checkAutoAward() {
+  const t = today();
+  const { data: evs } = await db.from('events').select('*, rsvps(member_id)').eq('auto_award', true).lte('date', t).gt('points', 0);
+  if (!evs) return;
+  for (const ev of evs) {
+    for (const rsvp of (ev.rsvps || [])) {
+      const mid = rsvp.member_id;
+      const alreadyDone = await db.from('history').select('id').eq('member_id', mid).eq('event_id', ev.id).single();
+      if (alreadyDone.data) continue;
+      await db.from('members').update({ pts_event: db.rpc ? undefined : null }).eq('id', mid);
+      // Increment event pts
+      const { data: mem } = await db.from('members').select('pts_event').eq('id', mid).single();
+      if (mem) await db.from('members').update({ pts_event: (mem.pts_event||0) + ev.points }).eq('id', mid);
+      await db.from('history').insert({ member_id: mid, event_id: ev.id, cat_key: 'event', cat_label: 'Event Participation', description: `Auto-award: ${ev.name}`, points: ev.points, date: ev.date });
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  MY POINTS
+// ══════════════════════════════════════════════════════
+async function renderMyPts() {
+  // Reload fresh member data
+  const { data: m } = await db.from('members').select('*').eq('id', cu.id).single();
+  if (m) cu = { ...cu, ...m };
+
+  // Custom points sum
+  const { data: custPts } = await db.from('custom_points').select('*, custom_categories(name,color)').eq('member_id', cu.id);
+  const custSum = (custPts||[]).reduce((a,r) => a + (r.points||0), 0);
+  cu.custom_sum = custSum;
+
+  const total = totalPts(cu);
+  const goal = parseInt(settings.point_goal)||100;
+  const pct = Math.min(100, Math.round(total/goal*100));
+
+  document.getElementById('ph-val').textContent = total;
+  document.getElementById('ph-name').textContent = cu.name;
+  document.getElementById('ph-bar').style.width = pct + '%';
+  document.getElementById('ph-goal-lbl').textContent = `Goal: ${goal} pts (${pct}%)`;
+
+  const pending = await db.from('submissions').select('id').eq('member_id', cu.id).eq('status','pending');
+
+  document.getElementById('my-stat-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Points</div><div class="stat-value">${total}</div><div class="stat-sub">${pct}% of goal</div></div>
+    <div class="stat-card"><div class="stat-label">Service</div><div class="stat-value">${cu.pts_service||0}</div><div class="stat-sub">pts</div></div>
+    <div class="stat-card"><div class="stat-label">Attendance</div><div class="stat-value">${cu.pts_attend||0}</div><div class="stat-sub">pts</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--orange)">${pending.data?.length||0}</div><div class="stat-sub">submissions</div></div>`;
+
+  // History
+  const { data: hist } = await db.from('history').select('*').eq('member_id', cu.id).order('date', {ascending:false});
+  const { data: subs } = await db.from('submissions').select('*').eq('member_id', cu.id).neq('status','approved').order('submitted_at', {ascending:false});
+
+  const histRows = (hist||[]).map(h => ({
+    date: h.date, catKey: h.cat_key, catLabel: h.cat_label, desc: h.description, pts: h.points, status:'approved'
+  }));
+  const subRows = (subs||[]).map(s => ({
+    date: s.date, catKey: s.type, catLabel: {service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[s.type]||s.type,
+    desc: `${s.description} @ ${s.org}`, pts: s.hours, status: s.status
+  }));
+
+  const rows = [...histRows, ...subRows].sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('my-hist-tbody').innerHTML = rows.length
+    ? rows.map(r => `<tr>
+        <td>${fmtDate(r.date)}</td>
+        <td>${catBadge(r.catKey, r.catLabel)}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+        <td><span class="points-chip">${r.status==='pending'?r.pts+' req.':r.status==='rejected'?'—':'+'+r.pts}</span></td>
+        <td><span class="badge badge-${r.status}">${r.status.charAt(0).toUpperCase()+r.status.slice(1)}</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="empty-state">No activity yet — submit your first service points!</td></tr>';
+}
+
+// ══════════════════════════════════════════════════════
+//  SUBMIT
+// ══════════════════════════════════════════════════════
+async function submitPts() {
+  const type = document.getElementById('sub-type').value;
+  const date = document.getElementById('sub-date').value;
+  const hours = parseInt(document.getElementById('sub-hrs').value);
+  const org = document.getElementById('sub-org').value.trim();
+  const desc = document.getElementById('sub-desc').value.trim();
+  const sup = document.getElementById('sub-sup').value.trim();
+
+  if (!date||!hours||!org||!desc) { toast('Please fill in all required fields.', 'error'); return; }
+  if (hours<1||hours>40) { toast('Enter between 1–40 hours.', 'error'); return; }
+
+  const btn = document.getElementById('sub-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+
+  const { error } = await db.from('submissions').insert({ member_id: cu.id, type, date, org, description: desc, hours, supervisor: sup, status:'pending' });
+
+  btn.disabled = false; btn.textContent = 'Submit for Review →';
+
+  if (error) { toast('Error submitting — please try again.', 'error'); return; }
+  ['sub-org','sub-desc','sub-hrs','sub-sup'].forEach(id => document.getElementById(id).value = '');
+  toast('✓ Submitted! Awaiting officer review.');
+}
+
+// ══════════════════════════════════════════════════════
+//  DASHBOARD
+// ══════════════════════════════════════════════════════
+async function renderDash() {
+  document.getElementById('dash-title').textContent = cu.role==='ec' ? `Dashboard — ${cu.name.split(' ')[0]}` : 'Admin Dashboard';
+
+  const { data: allMems } = await db.from('members').select('*').neq('role','admin');
+  const { data: pend }    = await db.from('submissions').select('*, members(name,role)').eq('status','pending').order('submitted_at');
+  const { data: upcoming } = await db.from('events').select('id').gte('date', today());
+
+  // Custom sums per member
+  const { data: allCustPts } = await db.from('custom_points').select('member_id, points');
+  const custMap = {};
+  (allCustPts||[]).forEach(r => { custMap[r.member_id] = (custMap[r.member_id]||0) + r.points; });
+  const members = (allMems||[]).map(m => ({ ...m, custom_sum: custMap[m.id]||0 }));
+
+  const totalAw = members.reduce((s,m) => s+totalPts(m), 0);
+  document.getElementById('dash-stat-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Members</div><div class="stat-value">${members.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--orange)">${pend?.length||0}</div><div class="stat-sub">need review</div></div>
+    <div class="stat-card"><div class="stat-label">Pts Awarded</div><div class="stat-value">${totalAw}</div></div>
+    <div class="stat-card"><div class="stat-label">Upcoming Events</div><div class="stat-value">${upcoming?.length||0}</div></div>`;
+
+  // Update pending badge on nav
+  const pendCount = pend?.length||0;
+  document.getElementById('pend-badge').textContent = pendCount;
+  document.querySelectorAll('.nav-tab[data-p="dashboard"]').forEach(t => {
+    const existing = t.querySelector('.tab-badge');
+    if (existing) existing.remove();
+    if (pendCount > 0) t.insertAdjacentHTML('beforeend', `<span class="tab-badge">${pendCount}</span>`);
+  });
+
+  // Pending table
+  document.getElementById('pend-tbody').innerHTML = pendCount ? (pend||[]).map(s => {
+    const mem = s.members;
+    const catLabel = {service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[s.type]||s.type;
+    return `<tr>
+      <td>${fmtDate(s.submitted_at?.split('T')[0])}</td>
+      <td><div class="member-name-cell"><div class="member-avatar ${mem?.role==='ec'?'ec':''}">${ini(mem?.name)}</div>${mem?.name||'Unknown'}</div></td>
+      <td>${catBadge(s.type, catLabel)}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.org}: ${s.description}">${s.org}: ${s.description}${s.supervisor?' · '+s.supervisor:''}</td>
+      <td><span class="points-chip">${s.hours} pts</span></td>
+      <td><div class="action-btns">
+        <button class="btn btn-success btn-sm" onclick="reviewSub('${s.id}','${s.member_id}','${s.type}',${s.hours},'${s.description}','${s.org}','${s.date}')">✓ Approve</button>
+        <button class="btn btn-danger btn-sm" onclick="rejectSub('${s.id}')">✗ Reject</button>
+      </div></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty-state">No pending submissions — all clear!</td></tr>';
+
+  // Leaderboard
+  const sorted = [...members].sort((a,b) => totalPts(b)-totalPts(a));
+  const rnk = ['🥇','🥈','🥉'];
+  document.getElementById('lb-tbody').innerHTML = sorted.map((m,i) => `<tr>
+    <td style="font-size:16px">${rnk[i]||(i+1)}</td>
+    <td><div class="member-name-cell"><div class="member-avatar ${m.role==='ec'?'ec':''}">${ini(m.name)}</div>${m.name}</div></td>
+    <td><span class="role-chip ${m.role}" style="font-size:9px;padding:2px 7px;border-radius:20px;background:${m.role==='ec'?'var(--violet-bg)':'var(--gold-pale)'};color:${m.role==='ec'?'var(--violet)':'#92400e'}">${m.role==='ec'?'EC':'Member'}</span></td>
+    <td><span class="points-chip" style="font-size:13px">${totalPts(m)}</span></td>
+    <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${m.custom_sum||0}</td>
+  </tr>`).join('');
+}
+
+async function reviewSub(id, memberId, type, hours, desc, org, date) {
+  const col = {service:'pts_service',attendance:'pts_attend',event:'pts_event'}[type]||'pts_service';
+  const { data: mem } = await db.from('members').select(col).eq('id', memberId).single();
+  if (!mem) return;
+  await db.from('members').update({ [col]: (mem[col]||0) + hours }).eq('id', memberId);
+  await db.from('submissions').update({ status:'approved' }).eq('id', id);
+  const catLabel = {service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[type]||type;
+  await db.from('history').insert({ member_id: memberId, cat_key: type, cat_label: catLabel, description: `${desc} @ ${org} (approved)`, points: hours, date });
+  toast(`✓ ${hours} pts approved!`);
+  renderDash();
+}
+
+async function rejectSub(id) {
+  await db.from('submissions').update({ status:'rejected' }).eq('id', id);
+  toast('Submission rejected.', 'error');
+  renderDash();
+}
+
+// ══════════════════════════════════════════════════════
+//  MEMBERS
+// ══════════════════════════════════════════════════════
+async function renderMembers() {
+  const { data: mems } = await db.from('members').select('*').neq('role','admin').order('name');
+  const { data: custPts } = await db.from('custom_points').select('member_id, points');
+  const custMap = {};
+  (custPts||[]).forEach(r => { custMap[r.member_id] = (custMap[r.member_id]||0) + r.points; });
+
+  document.getElementById('mem-tbody').innerHTML = (mems||[]).map(m => {
+    const csum = custMap[m.id]||0;
+    const tot = (m.pts_service||0)+(m.pts_attend||0)+(m.pts_event||0)+csum;
+    return `<tr>
+      <td><div class="member-name-cell"><div class="member-avatar ${m.role==='ec'?'ec':''}">${ini(m.name)}</div>${m.name}</div></td>
+      <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)">${m.username}</td>
+      <td><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:20px;background:${m.role==='ec'?'var(--violet-bg)':'var(--gold-pale)'};color:${m.role==='ec'?'var(--violet)':'#92400e'}">${m.role==='ec'?'EC':'Member'}</span></td>
+      <td><span class="points-chip">${tot}</span></td>
+      <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${csum}</td>
+      <td>${cu.role==='admin'?`<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>`:'—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function removeMember(id) {
+  if (!confirm('Remove this member? Their history will be kept.')) return;
+  await db.from('members').delete().eq('id', id);
+  toast('Member removed.');
+  renderMembers();
+}
+
+async function saveMember() {
+  const f = document.getElementById('nm-f').value.trim();
+  const l = document.getElementById('nm-l').value.trim();
+  const u = document.getElementById('nm-u').value.trim().toLowerCase();
+  const p = document.getElementById('nm-p').value;
+  const r = document.getElementById('nm-r').value;
+  if (!f||!l||!u||!p) { toast('All fields required.', 'error'); return; }
+  const { error } = await db.from('members').insert({ name:`${f} ${l}`, username:u, password:p, role:r });
+  if (error) { toast(error.code==='23505'?'Username already exists.':'Error adding member.', 'error'); return; }
+  closeModal('modal-member');
+  ['nm-f','nm-l','nm-u','nm-p'].forEach(id => document.getElementById(id).value = '');
+  toast(`✓ ${f} ${l} added as ${r==='ec'?'EC Member':'Member'}.`);
+  renderMembers();
+}
+
+// ══════════════════════════════════════════════════════
+//  AWARD POINTS
+// ══════════════════════════════════════════════════════
+async function buildAwardSelects() {
+  const { data: mems } = await db.from('members').select('id,name,role').neq('role','admin').order('name');
+  document.getElementById('aw-mem').innerHTML = (mems||[]).map(m => `<option value="${m.id}">${m.name} (${m.role==='ec'?'EC':'Member'})</option>`).join('');
+  rebuildCatSel();
+}
+
+function rebuildCatSel() {
+  const custOpts = customCats.map(c => `<option value="custom_${c.id}">${c.name} (custom)</option>`).join('');
+  document.getElementById('aw-cat').innerHTML = `
+    <option value="service">Service Hours</option>
+    <option value="attendance">Meeting Attendance</option>
+    <option value="event">Event Participation</option>
+    ${custOpts}
+    <option value="custom_new">+ New Custom…</option>`;
+}
+
+function awCatChange() {
+  document.getElementById('aw-cust-grp').style.display = document.getElementById('aw-cat').value === 'custom_new' ? '' : 'none';
+}
+
+async function awardPts() {
+  const memberId = document.getElementById('aw-mem').value;
+  const catVal   = document.getElementById('aw-cat').value;
+  const pts      = parseInt(document.getElementById('aw-pts').value);
+  const note     = document.getElementById('aw-note').value.trim();
+  if (!pts||pts<1) { toast('Enter a valid points amount.', 'error'); return; }
+  if (!note)       { toast('Add a brief note.', 'error'); return; }
+
+  const btn = document.getElementById('aw-btn');
+  btn.disabled = true; btn.textContent = 'Awarding…';
+
+  let catKey, catLabel;
+
+  if (['service','attendance','event'].includes(catVal)) {
+    const col = {service:'pts_service',attendance:'pts_attend',event:'pts_event'}[catVal];
+    catKey = catVal;
+    catLabel = {service:'Service Hours',attendance:'Meeting Attendance',event:'Event Participation'}[catVal];
+    const { data: m } = await db.from('members').select(col).eq('id', memberId).single();
+    await db.from('members').update({ [col]: (m[col]||0) + pts }).eq('id', memberId);
+  } else if (catVal.startsWith('custom_') && catVal !== 'custom_new') {
+    const catId = catVal.replace('custom_','');
+    const cat = customCats.find(c => c.id === catId);
+    if (!cat) { toast('Category not found.', 'error'); btn.disabled=false; btn.textContent='Award Points ✦'; return; }
+    catKey = 'custom'; catLabel = cat.name;
+    const { data: existing } = await db.from('custom_points').select('*').eq('member_id', memberId).eq('category_id', catId).single();
+    if (existing) {
+      await db.from('custom_points').update({ points: existing.points + pts }).eq('id', existing.id);
+    } else {
+      await db.from('custom_points').insert({ member_id: memberId, category_id: catId, points: pts });
+    }
+  } else {
+    const nm = document.getElementById('aw-cust-nm').value.trim();
+    if (!nm) { toast('Enter a custom category name.', 'error'); btn.disabled=false; btn.textContent='Award Points ✦'; return; }
+    let cat = customCats.find(c => c.name.toLowerCase()===nm.toLowerCase());
+    if (!cat) {
+      const { data: newCat } = await db.from('custom_categories').insert({ name: nm, color:'gold' }).select().single();
+      cat = newCat;
+      await loadCustomCats();
+    }
+    catKey = 'custom'; catLabel = nm;
+    const { data: existing } = await db.from('custom_points').select('*').eq('member_id', memberId).eq('category_id', cat.id).single();
+    if (existing) {
+      await db.from('custom_points').update({ points: existing.points + pts }).eq('id', existing.id);
+    } else {
+      await db.from('custom_points').insert({ member_id: memberId, category_id: cat.id, points: pts });
+    }
+    document.getElementById('aw-cust-nm').value = '';
+    document.getElementById('aw-cust-grp').style.display = 'none';
+    rebuildCatSel();
+  }
+
+  const { data: mem } = await db.from('members').select('name').eq('id', memberId).single();
+  await db.from('history').insert({ member_id: memberId, cat_key: catKey, cat_label: catLabel, description: note + ' (officer award)', points: pts, date: today() });
+
+  btn.disabled = false; btn.textContent = 'Award Points ✦';
+  document.getElementById('aw-pts').value = '';
+  document.getElementById('aw-note').value = '';
+  toast(`✦ +${pts} pts awarded to ${mem?.name}!`, 'gold');
+}
+
+// ══════════════════════════════════════════════════════
+//  CALENDAR
+// ══════════════════════════════════════════════════════
+async function renderCal() {
+  const link = settings.teams_link || '';
+  document.getElementById('teams-url').value = link;
+  if (link) {
+    document.getElementById('teams-dot').className = 'status-dot on';
+    document.getElementById('teams-status-txt').innerHTML = `<span class="status-dot on"></span>Connected`;
+    document.getElementById('teams-open-btn').style.display = '';
+  } else {
+    document.getElementById('teams-dot').className = 'status-dot off';
+    document.getElementById('teams-status-txt').innerHTML = `<span class="status-dot off"></span>Not connected`;
+    document.getElementById('teams-open-btn').style.display = 'none';
+  }
+
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('cal-lbl').textContent = `${MONTHS[calM]} ${calY}`;
+
+  const { data: evs }   = await db.from('events').select('*, rsvps(member_id)').order('date');
+  const { data: myRsvps } = await db.from('rsvps').select('event_id').eq('member_id', cu.id);
+  const myRsvpSet = new Set((myRsvps||[]).map(r => r.event_id));
+
+  const t = today();
+  const first = new Date(calY, calM, 1).getDay();
+  const days  = new Date(calY, calM+1, 0).getDate();
+  const prev  = new Date(calY, calM, 0).getDate();
+
+  let h = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div class="cal-day-name">${d}</div>`).join('');
+  for (let i=first-1;i>=0;i--) h+=`<div class="cal-cell other-month"><div class="cal-date">${prev-i}</div></div>`;
+  for (let d=1;d<=days;d++) {
+    const ds = `${calY}-${String(calM+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isT = ds===t;
+    const dayEvs = (evs||[]).filter(e => e.date===ds);
+    const dots = dayEvs.slice(0,2).map(e=>`<div class="cal-event-dot ${e.type}">${e.name}</div>`).join('');
+    const more = dayEvs.length>2?`<div style="font-size:10px;color:var(--text-faint)">+${dayEvs.length-2} more</div>`:'';
+    h+=`<div class="cal-cell${isT?' today':''}"><div class="cal-date">${d}</div>${dots}${more}</div>`;
+  }
+  const rem = (first+days)%7; if(rem) for(let i=1;i<=7-rem;i++) h+=`<div class="cal-cell other-month"><div class="cal-date">${i}</div></div>`;
+  document.getElementById('cal-grid').innerHTML = h;
+
+  const upcoming = (evs||[]).filter(e=>e.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
+  document.getElementById('ev-tbody').innerHTML = upcoming.length ? upcoming.map(ev => {
+    const going = myRsvpSet.has(ev.id);
+    const autoTag = ev.auto_award&&ev.points ? '<span style="font-size:10px;color:var(--green);font-weight:600;margin-left:4px">⚡ auto</span>' : '';
+    return `<tr>
+      <td style="white-space:nowrap;color:var(--text-muted)">${fmtDate(ev.date)}</td>
+      <td style="font-weight:500">${ev.name}<br><span style="font-size:11px;color:var(--text-faint)">${ev.description||''}</span></td>
+      <td>${typeBadge(ev.type)}</td>
+      <td>${ev.points?`<span class="points-chip">+${ev.points}</span>${autoTag}`:'<span style="color:var(--text-faint)">—</span>'}</td>
+      <td style="color:var(--text-muted)">${(ev.rsvps||[]).length} going</td>
+      <td><button class="rsvp-btn ${going?'rsvp-go':'rsvp-no'}" onclick="toggleRSVP('${ev.id}',${going},'${ev.name}',${ev.auto_award&&ev.points?ev.points:0})">${going?'✓ Going':'RSVP'}</button></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6" class="empty-state">No upcoming events.</td></tr>';
+}
+
+function calMv(d) { calM+=d; if(calM>11){calM=0;calY++;} if(calM<0){calM=11;calY--;} renderCal(); }
+
+async function toggleRSVP(evId, currentlyGoing, evName, autoPts) {
+  if (currentlyGoing) {
+    await db.from('rsvps').delete().eq('event_id', evId).eq('member_id', cu.id);
+    toast('RSVP removed.');
+  } else {
+    await db.from('rsvps').insert({ event_id: evId, member_id: cu.id });
+    const msg = autoPts ? ` — ${autoPts} pts will be auto-awarded on the event date ⚡` : '';
+    toast(`✓ You're going to ${evName}!${msg}`);
+  }
+  renderCal();
+}
+
+async function saveTeams() {
+  const link = document.getElementById('teams-url').value.trim();
+  await saveSetting('teams_link', link);
+  renderCal();
+  toast(link ? '✓ Teams link saved and connected!' : 'Teams link cleared.');
+}
+function openTeams() { if (settings.teams_link) window.open(settings.teams_link, '_blank'); }
+
+async function saveEvent() {
+  const name = document.getElementById('ev-nm').value.trim();
+  const date = document.getElementById('ev-dt').value;
+  const pts  = parseInt(document.getElementById('ev-pts').value)||0;
+  const type = document.getElementById('ev-tp').value;
+  const desc = document.getElementById('ev-desc').value.trim();
+  const auto = document.getElementById('ev-auto').value === 'yes';
+  if (!name||!date) { toast('Name and date are required.', 'error'); return; }
+  await db.from('events').insert({ name, date, type, points: pts, description: desc, auto_award: auto });
+  closeModal('modal-event');
+  ['ev-nm','ev-desc'].forEach(id => document.getElementById(id).value='');
+  toast(`✓ "${name}" added to calendar.`);
+  renderCal();
+}
+
+// ══════════════════════════════════════════════════════
+//  SETTINGS
+// ══════════════════════════════════════════════════════
+async function renderSettings() {
+  document.getElementById('set-goal').value = settings.point_goal||100;
+  const list = document.getElementById('cat-list');
+  list.innerHTML = customCats.length ? customCats.map(cat => {
+    const c = COLMAP[cat.color]||COLMAP.gold;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span class="badge" style="background:${c.bg};color:${c.color};border:1px solid ${c.border}">${cat.name}</span>
+      <button class="btn btn-danger btn-sm" onclick="delCat('${cat.id}')">Remove</button>
+    </div>`;
+  }).join('') : '<div class="empty-state" style="padding:16px">No custom categories yet.</div>';
+}
+
+async function saveGoal() {
+  const v = parseInt(document.getElementById('set-goal').value);
+  if (!v||v<10) { toast('Set a goal of at least 10.', 'error'); return; }
+  await saveSetting('point_goal', v);
+  toast(`✓ Semester goal set to ${v} pts.`);
+}
+
+async function delCat(id) {
+  if (!confirm('Remove category? Points already awarded remain.')) return;
+  await db.from('custom_categories').delete().eq('id', id);
+  await loadCustomCats();
+  renderSettings();
+  rebuildCatSel();
+  toast('Category removed.');
+}
+
+async function saveCat() {
+  const nm  = document.getElementById('cat-nm').value.trim();
+  const col = document.getElementById('cat-col').value;
+  if (!nm) { toast('Enter a category name.', 'error'); return; }
+  const { error } = await db.from('custom_categories').insert({ name: nm, color: col });
+  if (error) { toast('Error adding category.', 'error'); return; }
+  await loadCustomCats();
+  closeModal('modal-cat');
+  document.getElementById('cat-nm').value = '';
+  renderSettings(); rebuildCatSel();
+  toast(`✓ "${nm}" category added.`, 'gold');
+}
+
+async function changePass() {
+  const np = document.getElementById('new-pass').value;
+  const nc = document.getElementById('new-pass-confirm').value;
+  if (!np) { toast('Enter a new password.', 'error'); return; }
+  if (np !== nc) { toast('Passwords do not match.', 'error'); return; }
+  await db.from('members').update({ password: np }).eq('id', cu.id);
+  document.getElementById('new-pass').value = '';
+  document.getElementById('new-pass-confirm').value = '';
+  toast('✓ Password updated.');
+}
+</script>
+</body>
+</html>
