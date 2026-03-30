@@ -538,7 +538,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
     </div>
     <div class="form-group"><label class="form-label">Username</label><input type="text" class="form-input" id="nm-u" placeholder="e.g. jsmith"/></div>
     <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="nm-p" placeholder="Initial password"/></div>
-    <div class="form-group"><label class="form-label">Role</label><select class="form-select" id="nm-r"><option value="member">Member</option><option value="ec">Executive Committee</option></select></div>
+    <div class="form-group"><label class="form-label">Role</label><select class="form-select" id="nm-r"><option value="member">Member</option><option value="ec">Executive Committee</option><option value="admin">Admin / Advisor</option></select></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-member')">Cancel</button>
       <button class="btn btn-navy" onclick="saveMember()">Add Member</button>
@@ -569,8 +569,8 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
 // ══════════════════════════════════════════════════════
 //  CONFIG — REPLACE THESE WITH YOUR SUPABASE VALUES
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL  = 'https://ajhmmqjfmqtfckzunrdh.supabase.co';   // e.g. https://abcxyz.supabase.co
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqaG1tcWpmbXF0ZmNrenVucmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDk2NzYsImV4cCI6MjA5MDQ4NTY3Nn0.Ibt-KqfwFkVJLuE0RCGoD78su_r4OLfEJM_GX34xjc8'; // long string starting with eyJ...
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // e.g. https://abcxyz.supabase.co
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY'; // long string starting with eyJ...
 
 // ══════════════════════════════════════════════════════
 //  INIT
@@ -934,21 +934,34 @@ async function rejectSub(id) {
 //  MEMBERS
 // ══════════════════════════════════════════════════════
 async function renderMembers() {
-  const { data: mems } = await db.from('members').select('*').neq('role','admin').order('name');
+  const { data: mems } = await db.from('members').select('*').order('role').order('name');
   const { data: custPts } = await db.from('custom_points').select('member_id, points');
   const custMap = {};
   (custPts||[]).forEach(r => { custMap[r.member_id] = (custMap[r.member_id]||0) + r.points; });
 
+  const roleStyle = {
+    admin:  { bg:'var(--gold-pale)', color:'var(--navy)',       label:'Admin'  },
+    ec:     { bg:'var(--violet-bg)', color:'var(--violet)',     label:'EC'     },
+    member: { bg:'#f0f2f8',          color:'var(--text-muted)', label:'Member' },
+  };
+
   document.getElementById('mem-tbody').innerHTML = (mems||[]).map(m => {
     const csum = custMap[m.id]||0;
-    const tot = (m.pts_service||0)+(m.pts_attend||0)+(m.pts_event||0)+csum;
+    const tot  = (m.pts_service||0)+(m.pts_attend||0)+(m.pts_event||0)+csum;
+    const rs   = roleStyle[m.role]||roleStyle.member;
+    const isSelf    = m.id === cu.id;
+    const canRemove = cu.role==='admin' && !isSelf;
+    const avatarBg  = m.role==='admin' ? 'background:var(--navy)' : m.role==='ec' ? 'background:var(--violet)' : '';
     return `<tr>
-      <td><div class="member-name-cell"><div class="member-avatar ${m.role==='ec'?'ec':''}">${ini(m.name)}</div>${m.name}</div></td>
+      <td><div class="member-name-cell">
+        <div class="member-avatar" style="${avatarBg}">${ini(m.name)}</div>
+        ${m.name}${isSelf?' <span style="font-size:10px;color:var(--text-faint)">(you)</span>':''}
+      </div></td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)">${m.username}</td>
-      <td><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:20px;background:${m.role==='ec'?'var(--violet-bg)':'var(--gold-pale)'};color:${m.role==='ec'?'var(--violet)':'#92400e'}">${m.role==='ec'?'EC':'Member'}</span></td>
+      <td><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:20px;background:${rs.bg};color:${rs.color}">${rs.label}</span></td>
       <td><span class="points-chip">${tot}</span></td>
       <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${csum}</td>
-      <td>${cu.role==='admin'?`<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>`:'—'}</td>
+      <td>${canRemove ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -971,7 +984,8 @@ async function saveMember() {
   if (error) { toast(error.code==='23505'?'Username already exists.':'Error adding member.', 'error'); return; }
   closeModal('modal-member');
   ['nm-f','nm-l','nm-u','nm-p'].forEach(id => document.getElementById(id).value = '');
-  toast(`✓ ${f} ${l} added as ${r==='ec'?'EC Member':'Member'}.`);
+  const roleLabel = { admin:'Admin/Advisor', ec:'EC Member', member:'Member' }[r]||r;
+  toast(`✓ ${f} ${l} added as ${roleLabel}.`);
   renderMembers();
 }
 
