@@ -372,9 +372,9 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       </div>
       <div class="card">
         <div class="calendar-header">
-          <button class="cal-nav-btn" onclick="calMv(-1)">← Prev</button>
+          <button type="button" class="cal-nav-btn" onclick="calMv(-1)">← Prev</button>
           <div class="cal-month-label" id="cal-lbl"></div>
-          <button class="cal-nav-btn" onclick="calMv(1)">Next →</button>
+          <button type="button" class="cal-nav-btn" onclick="calMv(1)">Next →</button>
         </div>
         <div class="cal-grid" id="cal-grid"></div>
       </div>
@@ -1077,15 +1077,20 @@ async function awardPts() {
 // ══════════════════════════════════════════════════════
 async function renderCal() {
   const link = settings.teams_link || '';
-  document.getElementById('teams-url').value = link;
+  const teamsUrl = document.getElementById('teams-url');
+  const teamsDot = document.getElementById('teams-dot');
+  const teamsTxt = document.getElementById('teams-status-txt');
+  const teamsBtn = document.getElementById('teams-open-btn');
+
+  if (teamsUrl) teamsUrl.value = link;
   if (link) {
-    document.getElementById('teams-dot').className = 'status-dot on';
-    document.getElementById('teams-status-txt').innerHTML = `<span class="status-dot on"></span>Connected`;
-    document.getElementById('teams-open-btn').style.display = '';
+    if (teamsDot) teamsDot.className = 'status-dot on';
+    if (teamsTxt) teamsTxt.innerHTML = `<span class="status-dot on"></span>Connected`;
+    if (teamsBtn) teamsBtn.style.display = '';
   } else {
-    document.getElementById('teams-dot').className = 'status-dot off';
-    document.getElementById('teams-status-txt').innerHTML = `<span class="status-dot off"></span>Not connected`;
-    document.getElementById('teams-open-btn').style.display = 'none';
+    if (teamsDot) teamsDot.className = 'status-dot off';
+    if (teamsTxt) teamsTxt.innerHTML = `<span class="status-dot off"></span>Not connected`;
+    if (teamsBtn) teamsBtn.style.display = 'none';
   }
 
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -1130,7 +1135,7 @@ async function renderCal() {
   }).join('') : '<tr><td colspan="7" class="empty-state">No upcoming events.</td></tr>';
 }
 
-function calMv(d) { calM+=d; if(calM>11){calM=0;calY++;} if(calM<0){calM=11;calY--;} renderCal(); }
+async function calMv(d) { calM+=d; if(calM>11){calM=0;calY++;} if(calM<0){calM=11;calY--;} await renderCal(); }
 
 async function toggleRSVP(evId, currentlyGoing, evName, autoPts) {
   if (currentlyGoing) {
