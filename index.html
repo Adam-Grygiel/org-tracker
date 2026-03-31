@@ -564,6 +564,18 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
     </div>
     <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="ev-tp"><option value="meeting">Meeting</option><option value="service">Service</option><option value="event">Event</option></select></div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ev-desc" placeholder="Details, location, etc."></textarea></div>
+    <div class="form-group"><label class="form-label">Repeat</label>
+  <select class="form-select" id="ev-repeat">
+    <option value="none">No repeat</option>
+    <option value="weekly">Weekly</option>
+    <option value="biweekly">Every 2 weeks</option>
+    <option value="monthly">Monthly</option>
+  </select>
+</div>
+<div class="form-group" id="ev-repeat-end-grp" style="display:none">
+  <label class="form-label">Repeat Until</label>
+  <input type="date" class="form-input" id="ev-repeat-end"/>
+</div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-event')">Cancel</button>
       <button class="btn btn-navy" onclick="saveEvent()">Add Event</button>
@@ -1564,16 +1576,40 @@ async function saveTeams() {
 function openTeams() { if (settings.teams_link) window.open(settings.teams_link, '_blank'); }
 
 async function saveEvent() {
-  const name = document.getElementById('ev-nm').value.trim();
-  const date = document.getElementById('ev-dt').value;
-  const pts  = parseInt(document.getElementById('ev-pts').value)||0;
-  const type = document.getElementById('ev-tp').value;
-  const desc = document.getElementById('ev-desc').value.trim();
+  const name   = document.getElementById('ev-nm').value.trim();
+  const date   = document.getElementById('ev-dt').value;
+  const pts    = parseInt(document.getElementById('ev-pts').value)||0;
+  const type   = document.getElementById('ev-tp').value;
+  const desc   = document.getElementById('ev-desc').value.trim();
+  const repeat = document.getElementById('ev-repeat').value;
+  const repeatEnd = document.getElementById('ev-repeat-end').value;
+
   if (!name||!date) { toast('Name and date are required.', 'error'); return; }
-  await db.from('events').insert({ name, date, type, points: pts, description: desc });
+  if (repeat !== 'none' && !repeatEnd) { toast('Please set a repeat end date.', 'error'); return; }
+
+  // Build list of dates to create
+  const dates = [date];
+  if (repeat !== 'none') {
+    const endDate = new Date(repeatEnd + 'T00:00:00');
+    let cur = new Date(date + 'T00:00:00');
+    while (true) {
+      if (repeat === 'weekly')    cur.setDate(cur.getDate() + 7);
+      if (repeat === 'biweekly') cur.setDate(cur.getDate() + 14);
+      if (repeat === 'monthly')  cur.setMonth(cur.getMonth() + 1);
+      if (cur > endDate) break;
+      dates.push(cur.toISOString().split('T')[0]);
+    }
+  }
+
+  // Insert one event per date
+  const rows = dates.map(d => ({ name, date: d, type, points: pts, description: desc }));
+  await db.from('events').insert(rows);
+
   closeModal('modal-event');
   ['ev-nm','ev-desc'].forEach(id => document.getElementById(id).value='');
-  toast(`✓ "${name}" added to calendar.`);
+  document.getElementById('ev-repeat').value = 'none';
+  document.getElementById('ev-repeat-end-grp').style.display = 'none';
+  toast(`✓ "${name}" added — ${dates.length} occurrence${dates.length>1?'s':''} created.`);
   renderCal();
 }
 
