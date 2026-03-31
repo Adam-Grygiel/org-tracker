@@ -1612,17 +1612,7 @@ async function saveEvent() {
   renderCal();
 }
 
-  // Insert one event per date
-  const rows = dates.map(d => ({ name, date: d, type, points: pts, description: desc }));
-  await db.from('events').insert(rows);
-
-  closeModal('modal-event');
-  ['ev-nm','ev-desc'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('ev-repeat').value = 'none';
-  document.getElementById('ev-repeat-end-grp').style.display = 'none';
-  toast(`✓ "${name}" added — ${dates.length} occurrence${dates.length>1?'s':''} created.`);
-  renderCal();
-}
+  
 
 async function deleteEvent(id, name) {
   if (!confirm(`Delete "${name}"? This will also remove all RSVPs for this event.`)) return;
