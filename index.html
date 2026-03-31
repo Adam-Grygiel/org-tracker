@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gamma Beta Phi</title>
+<title>Org Points Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -241,7 +241,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
 
 <!-- LOADING -->
 <div id="loading-screen">
-  <div class="loading-logo">Gamma Beta Phi</div>
+  <div class="loading-logo">⭐ OrgTracker</div>
   <div class="loading-spinner"></div>
   <div class="loading-msg" id="loading-msg">Connecting to database…</div>
 </div>
@@ -251,8 +251,8 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
   <div class="login-card">
     <div class="login-logo">
       <div class="star-badge">⭐</div>
-      <div class="org-name">Gamma Beta Phi<br>Member Portal</div>
-      <div class="org-sub">Bluefield State University</div>
+      <div class="org-name">Student Org<br>Points Portal</div>
+      <div class="org-sub">Higher Education · Member Tracker</div>
     </div>
     <div class="login-form">
       <label>Username</label>
@@ -269,7 +269,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
 <div id="app">
   <div class="topbar">
     <div class="topbar-left">
-      <div class="topbar-logo">Gamma Beta Phi</div>
+      <div class="topbar-logo">⭐ OrgTracker</div>
       <div class="role-badge" id="role-badge">Member</div>
     </div>
     <div class="topbar-right">
@@ -300,6 +300,10 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
         </div>
       </div>
       <div class="stat-grid" id="my-stat-grid"></div>
+      <div class="card" id="gs-card">
+        <div class="card-title">Good Standing Status</div>
+        <div id="gs-member-status"></div>
+      </div>
       <div class="card">
         <div class="card-title">Activity History</div>
         <div class="table-wrap">
@@ -435,7 +439,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Total</th><th>Service</th><th>Attend.</th><th>Events</th><th>Custom</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Total</th><th>Service</th><th>Attend.</th><th>Events</th><th>Custom</th><th>Standing</th><th></th></tr></thead>
             <tbody id="mem-tbody"></tbody>
           </table>
         </div>
@@ -488,6 +492,32 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
           </div>
         </div>
         <button class="btn btn-outline btn-sm" onclick="saveGoal()">Save Goal</button>
+      </div>
+      <div class="card" style="max-width:520px">
+        <div class="card-title">Good Standing Requirements</div>
+        <div class="alert alert-info" style="margin-bottom:14px">ℹ️ Members must meet ALL requirements to be in good standing each semester.</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Chapter Dues (pts)</label>
+            <input type="number" class="form-input" id="gs-dues" min="0" placeholder="1"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Meeting Points</label>
+            <input type="number" class="form-input" id="gs-meetings" min="0" placeholder="3"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Service Points</label>
+            <input type="number" class="form-input" id="gs-service" min="0" placeholder="3"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Misc Points</label>
+            <input type="number" class="form-input" id="gs-misc" min="0" placeholder="4"/>
+          </div>
+        </div>
+        <div class="alert alert-warn" style="margin-bottom:14px">Dues points come from the <strong>Dues</strong> custom category. Misc points = Events + any other Custom categories combined.</div>
+        <button class="btn btn-outline btn-sm" onclick="saveGoodStanding()">Save Requirements</button>
       </div>
       <div class="card" style="max-width:520px">
         <div class="card-title" style="margin-bottom:12px">
@@ -705,6 +735,11 @@ document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('cli
 async function loadSettings() {
   const { data } = await db.from('settings').select('*');
   if (data) data.forEach(r => { settings[r.key] = r.value; });
+  // defaults
+  if (!settings.gs_dues)     settings.gs_dues     = '1';
+  if (!settings.gs_meetings) settings.gs_meetings = '3';
+  if (!settings.gs_service)  settings.gs_service  = '3';
+  if (!settings.gs_misc)     settings.gs_misc     = '4';
 }
 async function loadCustomCats() {
   const { data } = await db.from('custom_categories').select('*').order('created_at');
@@ -834,6 +869,23 @@ async function renderMyPts() {
     <div class="stat-card"><div class="stat-label">Service</div><div class="stat-value">${cu.pts_service||0}</div><div class="stat-sub">pts</div></div>
     <div class="stat-card"><div class="stat-label">Attendance</div><div class="stat-value">${cu.pts_attend||0}</div><div class="stat-sub">pts</div></div>
     <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--orange)">${pending.data?.length||0}</div><div class="stat-sub">submissions</div></div>`;
+
+  // Good standing status (members only)
+  const gsCard = document.getElementById('gs-card');
+  if (cu.role === 'member') {
+    const { checks, inGoodStanding } = calcGoodStanding(cu, custPts||[]);
+    gsCard.style.display = '';
+    document.getElementById('gs-member-status').innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        ${goodStandingBadge(inGoodStanding)}
+        <span style="font-size:12px;color:var(--text-muted)">
+          ${inGoodStanding ? 'You have met all requirements for this semester.' : 'Complete the requirements below to achieve good standing.'}
+        </span>
+      </div>
+      ${goodStandingChecklist(checks)}`;
+  } else {
+    gsCard.style.display = 'none';
+  }
 
   // History
   const { data: hist } = await db.from('history').select('*').eq('member_id', cu.id).order('date', {ascending:false});
@@ -1067,10 +1119,15 @@ async function rejectSub(id) {
 //  MEMBERS
 // ══════════════════════════════════════════════════════
 async function renderMembers() {
-  const { data: mems } = await db.from('members').select('*').order('role').order('name');
-  const { data: custPts } = await db.from('custom_points').select('member_id, points');
-  const custMap = {};
-  (custPts||[]).forEach(r => { custMap[r.member_id] = (custMap[r.member_id]||0) + r.points; });
+  const { data: mems }    = await db.from('members').select('*').order('role').order('name');
+  const { data: custPts } = await db.from('custom_points').select('member_id, points, custom_categories(name,color)');
+
+  // Group custom points by member
+  const custByMember = {};
+  (custPts||[]).forEach(r => {
+    if (!custByMember[r.member_id]) custByMember[r.member_id] = [];
+    custByMember[r.member_id].push(r);
+  });
 
   const roleStyle = {
     admin:  { bg:'var(--gold-pale)', color:'var(--navy)',       label:'Admin'  },
@@ -1079,12 +1136,17 @@ async function renderMembers() {
   };
 
   document.getElementById('mem-tbody').innerHTML = (mems||[]).map(m => {
-    const csum = custMap[m.id]||0;
-    const tot  = (m.pts_service||0)+(m.pts_attend||0)+(m.pts_event||0)+csum;
-    const rs   = roleStyle[m.role]||roleStyle.member;
+    const mCust  = custByMember[m.id]||[];
+    const csum   = mCust.reduce((a,r) => a+(r.points||0), 0);
+    const tot    = (m.pts_service||0)+(m.pts_attend||0)+(m.pts_event||0)+csum;
+    const rs     = roleStyle[m.role]||roleStyle.member;
     const isSelf    = m.id === cu.id;
     const canRemove = cu.role==='admin' && !isSelf;
     const avatarBg  = m.role==='admin' ? 'background:var(--navy)' : m.role==='ec' ? 'background:var(--violet)' : '';
+    const { inGoodStanding } = m.role === 'member' ? calcGoodStanding(m, mCust) : { inGoodStanding: null };
+    const standingCell = m.role === 'member'
+      ? goodStandingBadge(inGoodStanding)
+      : '<span style="color:var(--text-faint)">—</span>';
     return `<tr style="cursor:pointer" onclick="viewMember('${m.id}')">
       <td><div class="member-name-cell">
         <div class="member-avatar" style="${avatarBg}">${ini(m.name)}</div>
@@ -1095,6 +1157,7 @@ async function renderMembers() {
       <td><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:20px;background:${rs.bg};color:${rs.color}">${rs.label}</span></td>
       <td><span class="points-chip">${tot}</span></td>
       <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${csum}</td>
+      <td>${standingCell}</td>
       <td onclick="event.stopPropagation()">${canRemove ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : '—'}</td>
     </tr>`;
   }).join('');
@@ -1147,6 +1210,25 @@ async function viewMember(id) {
   document.getElementById('profile-total').textContent = total;
   document.getElementById('profile-pct').textContent = `${pct}% of ${goal} pt goal`;
   document.getElementById('profile-bar').style.width = pct + '%';
+
+  // Clear any previously injected good standing section
+  const prevGs = document.getElementById('profile-gs-section');
+  if (prevGs) prevGs.remove();
+
+  // Good standing checklist (members only)
+  const gsHtml = m.role === 'member' ? (() => {
+    const { checks, inGoodStanding } = calcGoodStanding(m, custPts||[]);
+    return `<div id="profile-gs-section" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-weight:500;font-size:13px;color:var(--text)">Good Standing</span>
+        ${goodStandingBadge(inGoodStanding)}
+      </div>
+      ${goodStandingChecklist(checks)}
+    </div>`;
+  })() : '';
+
+  // Inject good standing above stat grid
+  document.getElementById('profile-stat-grid').insertAdjacentHTML('beforebegin', gsHtml);
 
   // Stat cards
   const statItems = [
@@ -1383,10 +1465,69 @@ async function deleteEvent(id, name) {
 }
 
 // ══════════════════════════════════════════════════════
-//  SETTINGS
+//  GOOD STANDING
 // ══════════════════════════════════════════════════════
+
+// Calculate good standing for a member given their pts and custom points array
+// custPtsArr: array of { points, custom_categories: { name } }
+function calcGoodStanding(m, custPtsArr) {
+  const reqs = {
+    dues:     parseInt(settings.gs_dues)     || 1,
+    meetings: parseInt(settings.gs_meetings) || 3,
+    service:  parseInt(settings.gs_service)  || 3,
+    misc:     parseInt(settings.gs_misc)     || 4,
+  };
+
+  // Dues: look for a custom category named "Dues" (case-insensitive)
+  const duesCat = (custPtsArr||[]).find(r => r.custom_categories?.name?.toLowerCase() === 'dues');
+  const duesPts = duesCat ? (duesCat.points||0) : 0;
+
+  // Misc: events + all custom categories EXCEPT dues
+  const nonDuesCustom = (custPtsArr||[])
+    .filter(r => r.custom_categories?.name?.toLowerCase() !== 'dues')
+    .reduce((a,r) => a+(r.points||0), 0);
+  const miscPts = (m.pts_event||0) + nonDuesCustom;
+
+  const checks = [
+    { label:'Chapter Dues',    earned: duesPts,           req: reqs.dues,     met: duesPts           >= reqs.dues     },
+    { label:'Meeting Points',  earned: m.pts_attend||0,   req: reqs.meetings, met: (m.pts_attend||0) >= reqs.meetings },
+    { label:'Service Points',  earned: m.pts_service||0,  req: reqs.service,  met: (m.pts_service||0) >= reqs.service  },
+    { label:'Misc Points',     earned: miscPts,            req: reqs.misc,     met: miscPts            >= reqs.misc     },
+  ];
+
+  const inGoodStanding = checks.every(c => c.met);
+  return { checks, inGoodStanding };
+}
+
+function goodStandingBadge(inGoodStanding) {
+  return inGoodStanding
+    ? `<span class="badge badge-approved">✓ Good Standing</span>`
+    : `<span class="badge badge-rejected">✗ Not in Good Standing</span>`;
+}
+
+function goodStandingChecklist(checks) {
+  return `<div style="display:flex;flex-direction:column;gap:8px">
+    ${checks.map(c => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:var(--radius-sm);background:${c.met?'var(--green-bg)':'var(--red-bg)'};border:1px solid ${c.met?'#86efac':'#fca5a5'}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px">${c.met?'✓':'✗'}</span>
+          <span style="font-weight:500;color:var(--text)">${c.label}</span>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:${c.met?'var(--green)':'var(--red)'}">
+          ${c.earned} / ${c.req} pts
+        </div>
+      </div>`).join('')}
+  </div>`;
+}
+
+// ── SETTINGS ──
 async function renderSettings() {
-  document.getElementById('set-goal').value = settings.point_goal||100;
+  document.getElementById('set-goal').value     = settings.point_goal||100;
+  document.getElementById('gs-dues').value      = settings.gs_dues||1;
+  document.getElementById('gs-meetings').value  = settings.gs_meetings||3;
+  document.getElementById('gs-service').value   = settings.gs_service||3;
+  document.getElementById('gs-misc').value      = settings.gs_misc||4;
+
   const list = document.getElementById('cat-list');
   list.innerHTML = customCats.length ? customCats.map(cat => {
     const c = COLMAP[cat.color]||COLMAP.gold;
@@ -1395,6 +1536,20 @@ async function renderSettings() {
       <button class="btn btn-danger btn-sm" onclick="delCat('${cat.id}')">Remove</button>
     </div>`;
   }).join('') : '<div class="empty-state" style="padding:16px">No custom categories yet.</div>';
+}
+
+async function saveGoodStanding() {
+  const dues     = parseInt(document.getElementById('gs-dues').value)||0;
+  const meetings = parseInt(document.getElementById('gs-meetings').value)||0;
+  const service  = parseInt(document.getElementById('gs-service').value)||0;
+  const misc     = parseInt(document.getElementById('gs-misc').value)||0;
+  await Promise.all([
+    saveSetting('gs_dues',     dues),
+    saveSetting('gs_meetings', meetings),
+    saveSetting('gs_service',  service),
+    saveSetting('gs_misc',     misc),
+  ]);
+  toast('✓ Good standing requirements saved.');
 }
 
 async function saveGoal() {
