@@ -382,7 +382,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
         <div class="card-title">Upcoming Events</div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Date</th><th>Event</th><th>Type</th><th>Points</th><th>Going</th><th>RSVP</th></tr></thead>
+            <thead><tr><th>Date</th><th>Event</th><th>Type</th><th>Points</th><th>Going</th><th>RSVP</th><th></th></tr></thead>
             <tbody id="ev-tbody"></tbody>
           </table>
         </div>
@@ -569,8 +569,8 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
 // ══════════════════════════════════════════════════════
 //  CONFIG — REPLACE THESE WITH YOUR SUPABASE VALUES
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL  = 'https://ajhmmqjfmqtfckzunrdh.supabase.co';   // e.g. https://abcxyz.supabase.co
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqaG1tcWpmbXF0ZmNrenVucmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDk2NzYsImV4cCI6MjA5MDQ4NTY3Nn0.Ibt-KqfwFkVJLuE0RCGoD78su_r4OLfEJM_GX34xjc8'; // long string starting with eyJ...
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // e.g. https://abcxyz.supabase.co
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY'; // long string starting with eyJ...
 
 // ══════════════════════════════════════════════════════
 //  INIT
@@ -1117,15 +1117,17 @@ async function renderCal() {
   document.getElementById('ev-tbody').innerHTML = upcoming.length ? upcoming.map(ev => {
     const going = myRsvpSet.has(ev.id);
     const autoTag = ev.auto_award&&ev.points ? '<span style="font-size:10px;color:var(--green);font-weight:600;margin-left:4px">⚡ auto</span>' : '';
+    const deleteBtn = cu.role==='admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}','${ev.name.replace(/'/g,"\\'")}')">Delete</button>` : '';
     return `<tr>
       <td style="white-space:nowrap;color:var(--text-muted)">${fmtDate(ev.date)}</td>
       <td style="font-weight:500">${ev.name}<br><span style="font-size:11px;color:var(--text-faint)">${ev.description||''}</span></td>
       <td>${typeBadge(ev.type)}</td>
       <td>${ev.points?`<span class="points-chip">+${ev.points}</span>${autoTag}`:'<span style="color:var(--text-faint)">—</span>'}</td>
       <td style="color:var(--text-muted)">${(ev.rsvps||[]).length} going</td>
-      <td><button class="rsvp-btn ${going?'rsvp-go':'rsvp-no'}" onclick="toggleRSVP('${ev.id}',${going},'${ev.name}',${ev.auto_award&&ev.points?ev.points:0})">${going?'✓ Going':'RSVP'}</button></td>
+      <td><button class="rsvp-btn ${going?'rsvp-go':'rsvp-no'}" onclick="toggleRSVP('${ev.id}',${going},'${ev.name.replace(/'/g,"\\'")}',${ev.auto_award&&ev.points?ev.points:0})">${going?'✓ Going':'RSVP'}</button></td>
+      <td>${deleteBtn}</td>
     </tr>`;
-  }).join('') : '<tr><td colspan="6" class="empty-state">No upcoming events.</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty-state">No upcoming events.</td></tr>';
 }
 
 function calMv(d) { calM+=d; if(calM>11){calM=0;calY++;} if(calM<0){calM=11;calY--;} renderCal(); }
@@ -1162,6 +1164,14 @@ async function saveEvent() {
   closeModal('modal-event');
   ['ev-nm','ev-desc'].forEach(id => document.getElementById(id).value='');
   toast(`✓ "${name}" added to calendar.`);
+  renderCal();
+}
+
+async function deleteEvent(id, name) {
+  if (!confirm(`Delete "${name}"? This will also remove all RSVPs for this event.`)) return;
+  await db.from('rsvps').delete().eq('event_id', id);
+  await db.from('events').delete().eq('id', id);
+  toast(`"${name}" deleted.`);
   renderCal();
 }
 
