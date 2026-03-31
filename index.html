@@ -273,6 +273,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       <div class="role-badge" id="role-badge">Member</div>
     </div>
     <div class="topbar-right">
+      <div style="font-size:11px;color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.08);padding:3px 10px;border-radius:20px;white-space:nowrap" id="semester-badge">—</div>
       <div class="user-pill">
         <div class="avatar-sm" id="top-avatar">?</div>
         <span id="top-name">—</span>
@@ -446,7 +447,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       </div>
     </div>
 
-    <!-- AWARD (Admin / EC ) -->
+    <!-- AWARD (Admin / EC) -->
     <div class="page" id="page-award">
       <div class="section-header">
         <div class="section-title">Award Points</div>
@@ -482,6 +483,12 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
     <div class="page" id="page-settings">
       <div class="section-header">
         <div class="section-title">Settings</div>
+      </div>
+      <div class="card" style="max-width:520px">
+        <div class="card-title">Semesters
+          <button class="btn btn-navy btn-sm" onclick="openModal('modal-semester')">+ New Semester</button>
+        </div>
+        <div id="semester-list"></div>
       </div>
       <div class="card" style="max-width:520px">
         <div class="card-title">Semester Point Goal</div>
@@ -598,6 +605,29 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
   </div>
 </div>
 
+<div class="modal-overlay" id="modal-semester">
+  <div class="modal">
+    <div class="modal-title">New Semester</div>
+    <div class="form-group"><label class="form-label">Name</label><input type="text" class="form-input" id="sem-name" placeholder="e.g. Fall 2026"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="sem-start"/></div>
+      <div class="form-group"><label class="form-label">End Date</label><input type="date" class="form-input" id="sem-end"/></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Set as Active Semester?</label>
+      <select class="form-select" id="sem-active">
+        <option value="yes">Yes — make this the current semester</option>
+        <option value="no">No — just create it</option>
+      </select>
+    </div>
+    <div class="alert alert-warn" style="margin-top:4px">Setting a new active semester will archive the current one. Member points reset for the new semester — old data is kept in history.</div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-semester')">Cancel</button>
+      <button class="btn btn-navy" onclick="saveSemester()">Create Semester</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-profile">
   <div class="modal" style="max-width:620px">
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
@@ -627,7 +657,10 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
     </div>
 
     <!-- Full history -->
-    <div style="font-weight:500;font-size:13px;color:var(--text);margin-bottom:10px">Full Activity History</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div style="font-weight:500;font-size:13px;color:var(--text)">Activity History</div>
+      <select class="form-select" id="profile-sem-sel" style="width:auto;font-size:12px;padding:5px 10px" onchange="switchProfileSemester()"></select>
+    </div>
     <div class="table-wrap" style="max-height:280px;overflow-y:auto">
       <table>
         <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Points</th><th>Status</th></tr></thead>
@@ -647,8 +680,8 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
 // ══════════════════════════════════════════════════════
 //  CONFIG — REPLACE THESE WITH YOUR SUPABASE VALUES
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL  = 'https://ajhmmqjfmqtfckzunrdh.supabase.co';   // e.g. https://abcxyz.supabase.co
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqaG1tcWpmbXF0ZmNrenVucmRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5MDk2NzYsImV4cCI6MjA5MDQ4NTY3Nn0.Ibt-KqfwFkVJLuE0RCGoD78su_r4OLfEJM_GX34xjc8'; // long string starting with eyJ...
+const SUPABASE_URL  = 'YOUR_SUPABASE_URL';   // e.g. https://abcxyz.supabase.co
+const SUPABASE_ANON = 'YOUR_SUPABASE_ANON_KEY'; // long string starting with eyJ...
 
 // ══════════════════════════════════════════════════════
 //  INIT
@@ -659,6 +692,8 @@ const db = createClient(SUPABASE_URL, SUPABASE_ANON);
 let cu = null; // current user
 let settings = { point_goal: 100, teams_link: '' };
 let customCats = [];
+let activeSemester = null; // current active semester
+let allSemesters = [];
 let calY = new Date().getFullYear();
 let calM = new Date().getMonth();
 
@@ -685,6 +720,7 @@ window.addEventListener('load', async () => {
   try {
     await loadSettings();
     await loadCustomCats();
+    await loadSemesters();
     hideLoading();
     document.getElementById('login-screen').style.display = 'flex';
   } catch(e) {
@@ -745,6 +781,53 @@ async function loadCustomCats() {
   const { data } = await db.from('custom_categories').select('*').order('created_at');
   customCats = data || [];
 }
+
+async function loadSemesters() {
+  const { data } = await db.from('semesters').select('*').order('start_date', { ascending: false });
+  allSemesters = data || [];
+  activeSemester = allSemesters.find(s => s.is_active) || allSemesters[0] || null;
+}
+
+// Get a member's points for a specific semester
+async function getSemesterPts(memberId, semesterId) {
+  const { data } = await db.from('semester_points')
+    .select('*').eq('member_id', memberId).eq('semester_id', semesterId).single();
+  return data || { pts_service:0, pts_attend:0, pts_event:0 };
+}
+
+// Get a member's custom points for a specific semester
+async function getSemesterCustomPts(memberId, semesterId) {
+  const { data } = await db.from('semester_custom_points')
+    .select('points, custom_categories(name,color)')
+    .eq('member_id', memberId).eq('semester_id', semesterId);
+  return data || [];
+}
+
+// Upsert semester_points for a member
+async function upsertSemesterPts(memberId, semesterId, updates) {
+  const existing = await getSemesterPts(memberId, semesterId);
+  const merged = {
+    pts_service: (existing.pts_service||0),
+    pts_attend:  (existing.pts_attend||0),
+    pts_event:   (existing.pts_event||0),
+    ...updates
+  };
+  await db.from('semester_points').upsert(
+    { member_id: memberId, semester_id: semesterId, ...merged },
+    { onConflict: 'member_id,semester_id' }
+  );
+}
+
+// Upsert semester_custom_points for a member + category
+async function upsertSemesterCustomPts(memberId, semesterId, categoryId, points) {
+  const { data: existing } = await db.from('semester_custom_points')
+    .select('*').eq('member_id', memberId).eq('semester_id', semesterId).eq('category_id', categoryId).single();
+  if (existing) {
+    await db.from('semester_custom_points').update({ points: existing.points + points }).eq('id', existing.id);
+  } else {
+    await db.from('semester_custom_points').insert({ member_id: memberId, semester_id: semesterId, category_id: categoryId, points });
+  }
+}
 async function saveSetting(key, value) {
   await db.from('settings').upsert({ key, value: String(value) });
   settings[key] = String(value);
@@ -789,10 +872,15 @@ document.getElementById('l-user').addEventListener('keydown', e => { if(e.key===
 async function initApp() {
   await loadSettings();
   await loadCustomCats();
+  await loadSemesters();
   await checkAutoAward();
 
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+
+  // Semester badge
+  const semBadge = document.getElementById('semester-badge');
+  if (semBadge) semBadge.textContent = activeSemester ? activeSemester.name : 'No Active Semester';
 
   const isAdmin = cu.role === 'admin';
   const isEC    = cu.role === 'ec';
@@ -844,42 +932,51 @@ async function checkAutoAward() {
 //  MY POINTS
 // ══════════════════════════════════════════════════════
 async function renderMyPts() {
-  // Reload fresh member data
-  const { data: m } = await db.from('members').select('*').eq('id', cu.id).single();
-  if (m) cu = { ...cu, ...m };
+  if (!activeSemester) {
+    document.getElementById('ph-val').textContent = '—';
+    document.getElementById('ph-name').textContent = cu.name;
+    document.getElementById('my-stat-grid').innerHTML = '<div class="stat-card"><div class="stat-label">No Active Semester</div><div class="stat-value" style="font-size:16px;color:var(--text-muted)">Ask your admin to set up a semester.</div></div>';
+    document.getElementById('gs-card').style.display = 'none';
+    document.getElementById('my-hist-tbody').innerHTML = '<tr><td colspan="5" class="empty-state">No active semester.</td></tr>';
+    return;
+  }
 
-  // Custom points sum
-  const { data: custPts } = await db.from('custom_points').select('*, custom_categories(name,color)').eq('member_id', cu.id);
-  const custSum = (custPts||[]).reduce((a,r) => a + (r.points||0), 0);
-  cu.custom_sum = custSum;
+  const sid = activeSemester.id;
 
-  const total = totalPts(cu);
-  const goal = parseInt(settings.point_goal)||100;
-  const pct = Math.min(100, Math.round(total/goal*100));
+  // Load semester points
+  const semPts    = await getSemesterPts(cu.id, sid);
+  const custPts   = await getSemesterCustomPts(cu.id, sid);
+  const custSum   = custPts.reduce((a,r) => a+(r.points||0), 0);
 
-  document.getElementById('ph-val').textContent = total;
-  document.getElementById('ph-name').textContent = cu.name;
-  document.getElementById('ph-bar').style.width = pct + '%';
+  // Build a member-like object for good standing calc
+  const mForGs = { ...cu, pts_service: semPts.pts_service, pts_attend: semPts.pts_attend, pts_event: semPts.pts_event };
+  const total = (semPts.pts_service||0) + (semPts.pts_attend||0) + (semPts.pts_event||0) + custSum;
+  const goal  = parseInt(settings.point_goal)||100;
+  const pct   = Math.min(100, Math.round(total/goal*100));
+
+  document.getElementById('ph-val').textContent  = total;
+  document.getElementById('ph-name').textContent = `${cu.name} · ${activeSemester.name}`;
+  document.getElementById('ph-bar').style.width  = pct + '%';
   document.getElementById('ph-goal-lbl').textContent = `Goal: ${goal} pts (${pct}%)`;
 
-  const pending = await db.from('submissions').select('id').eq('member_id', cu.id).eq('status','pending');
+  const pending = await db.from('submissions').select('id').eq('member_id', cu.id).eq('status','pending').eq('semester_id', sid);
 
   document.getElementById('my-stat-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Total Points</div><div class="stat-value">${total}</div><div class="stat-sub">${pct}% of goal</div></div>
-    <div class="stat-card"><div class="stat-label">Service</div><div class="stat-value">${cu.pts_service||0}</div><div class="stat-sub">pts</div></div>
-    <div class="stat-card"><div class="stat-label">Attendance</div><div class="stat-value">${cu.pts_attend||0}</div><div class="stat-sub">pts</div></div>
+    <div class="stat-card"><div class="stat-label">Service</div><div class="stat-value">${semPts.pts_service||0}</div><div class="stat-sub">pts</div></div>
+    <div class="stat-card"><div class="stat-label">Attendance</div><div class="stat-value">${semPts.pts_attend||0}</div><div class="stat-sub">pts</div></div>
     <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--orange)">${pending.data?.length||0}</div><div class="stat-sub">submissions</div></div>`;
 
-  // Good standing status (members only)
+  // Good standing (members only)
   const gsCard = document.getElementById('gs-card');
   if (cu.role === 'member') {
-    const { checks, inGoodStanding } = calcGoodStanding(cu, custPts||[]);
+    const { checks, inGoodStanding } = calcGoodStanding(mForGs, custPts);
     gsCard.style.display = '';
     document.getElementById('gs-member-status').innerHTML = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         ${goodStandingBadge(inGoodStanding)}
         <span style="font-size:12px;color:var(--text-muted)">
-          ${inGoodStanding ? 'You have met all requirements for this semester.' : 'Complete the requirements below to achieve good standing.'}
+          ${inGoodStanding ? `You are in good standing for ${activeSemester.name}.` : `Requirements for ${activeSemester.name} — complete all to achieve good standing.`}
         </span>
       </div>
       ${goodStandingChecklist(checks)}`;
@@ -887,19 +984,20 @@ async function renderMyPts() {
     gsCard.style.display = 'none';
   }
 
-  // History
-  const { data: hist } = await db.from('history').select('*').eq('member_id', cu.id).order('date', {ascending:false});
-  const { data: subs } = await db.from('submissions').select('*').eq('member_id', cu.id).neq('status','approved').order('submitted_at', {ascending:false});
+  // History — current semester only in main view
+  const { data: hist } = await db.from('history').select('*')
+    .eq('member_id', cu.id).eq('semester_id', sid).order('date', {ascending:false});
+  const { data: subs } = await db.from('submissions').select('*')
+    .eq('member_id', cu.id).eq('semester_id', sid).neq('status','approved').order('submitted_at', {ascending:false});
 
-  const histRows = (hist||[]).map(h => ({
-    date: h.date, catKey: h.cat_key, catLabel: h.cat_label, desc: h.description, pts: h.points, status:'approved'
+  const histRows = (hist||[]).map(h => ({ date:h.date, catKey:h.cat_key, catLabel:h.cat_label, desc:h.description, pts:h.points, status:'approved' }));
+  const subRows  = (subs||[]).map(s => ({
+    date:s.date, catKey:s.type,
+    catLabel:{service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[s.type]||s.type,
+    desc:`${s.description} @ ${s.org}`, pts:s.hours, status:s.status
   }));
-  const subRows = (subs||[]).map(s => ({
-    date: s.date, catKey: s.type, catLabel: {service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[s.type]||s.type,
-    desc: `${s.description} @ ${s.org}`, pts: s.hours, status: s.status
-  }));
-
   const rows = [...histRows, ...subRows].sort((a,b) => b.date.localeCompare(a.date));
+
   document.getElementById('my-hist-tbody').innerHTML = rows.length
     ? rows.map(r => `<tr>
         <td>${fmtDate(r.date)}</td>
@@ -908,7 +1006,7 @@ async function renderMyPts() {
         <td><span class="points-chip">${r.status==='pending'?r.pts+' req.':r.status==='rejected'?'—':'+'+r.pts}</span></td>
         <td><span class="badge badge-${r.status}">${r.status.charAt(0).toUpperCase()+r.status.slice(1)}</span></td>
       </tr>`).join('')
-    : '<tr><td colspan="5" class="empty-state">No activity yet — submit your first service points!</td></tr>';
+    : '<tr><td colspan="5" class="empty-state">No activity this semester yet.</td></tr>';
 }
 
 // ══════════════════════════════════════════════════════
@@ -928,7 +1026,8 @@ async function submitPts() {
   const btn = document.getElementById('sub-btn');
   btn.disabled = true; btn.textContent = 'Submitting…';
 
-  const { error } = await db.from('submissions').insert({ member_id: cu.id, type, date, org, description: desc, hours, supervisor: sup, status:'pending' });
+  if (!activeSemester) { toast('No active semester — ask your admin to set one up.', 'error'); return; }
+  const { error } = await db.from('submissions').insert({ member_id: cu.id, type, date, org, description: desc, hours, supervisor: sup, status:'pending', semester_id: activeSemester.id });
 
   btn.disabled = false; btn.textContent = 'Submit for Review →';
 
@@ -941,27 +1040,48 @@ async function submitPts() {
 //  DASHBOARD
 // ══════════════════════════════════════════════════════
 async function renderDash() {
-  document.getElementById('dash-title').textContent = cu.role==='ec' ? `Dashboard — ${cu.name.split(' ')[0]}` : 'Admin Dashboard';
+  if (!activeSemester) {
+    document.getElementById('dash-title').textContent = 'Dashboard';
+    document.getElementById('dash-stat-grid').innerHTML = '<div class="stat-card"><div class="stat-label">No Active Semester</div><div class="stat-value" style="font-size:16px;color:var(--text-muted)">Go to Settings to create one.</div></div>';
+    document.getElementById('pend-tbody').innerHTML = '<tr><td colspan="6" class="empty-state">No active semester.</td></tr>';
+    document.getElementById('lb-tbody').innerHTML   = '<tr><td colspan="8" class="empty-state">No active semester.</td></tr>';
+    document.getElementById('attend-section').innerHTML = '<div class="empty-state">No active semester.</div>';
+    return;
+  }
 
-  const { data: allMems } = await db.from('members').select('*').neq('role','admin');
-  const { data: pend }    = await db.from('submissions').select('*, members(name,role)').eq('status','pending').order('submitted_at');
+  const sid = activeSemester.id;
+  document.getElementById('dash-title').textContent = cu.role==='ec'
+    ? `Dashboard — ${cu.name.split(' ')[0]}` : `Admin Dashboard · ${activeSemester.name}`;
+
+  const { data: allMems }  = await db.from('members').select('*').neq('role','admin');
+  const { data: pend }     = await db.from('submissions').select('*, members(name,role)').eq('status','pending').eq('semester_id', sid).order('submitted_at');
   const { data: upcoming } = await db.from('events').select('id').gte('date', today());
+  const { data: semPtsAll }  = await db.from('semester_points').select('*').eq('semester_id', sid);
+  const { data: semCustAll } = await db.from('semester_custom_points').select('member_id, points').eq('semester_id', sid);
 
-  // Custom sums per member
-  const { data: allCustPts } = await db.from('custom_points').select('member_id, points');
-  const custMap = {};
-  (allCustPts||[]).forEach(r => { custMap[r.member_id] = (custMap[r.member_id]||0) + r.points; });
-  const members = (allMems||[]).map(m => ({ ...m, custom_sum: custMap[m.id]||0 }));
+  // Build points maps
+  const semPtsMap  = {};
+  (semPtsAll||[]).forEach(r => { semPtsMap[r.member_id] = r; });
+  const custSumMap = {};
+  (semCustAll||[]).forEach(r => { custSumMap[r.member_id] = (custSumMap[r.member_id]||0) + r.points; });
 
-  const totalAw = members.reduce((s,m) => s+totalPts(m), 0);
+  const members = (allMems||[]).map(m => ({
+    ...m,
+    pts_service: semPtsMap[m.id]?.pts_service||0,
+    pts_attend:  semPtsMap[m.id]?.pts_attend||0,
+    pts_event:   semPtsMap[m.id]?.pts_event||0,
+    custom_sum:  custSumMap[m.id]||0,
+  }));
+
+  const totalAw  = members.reduce((s,m) => s + (m.pts_service+m.pts_attend+m.pts_event+m.custom_sum), 0);
+  const pendCount = pend?.length||0;
+
   document.getElementById('dash-stat-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Members</div><div class="stat-value">${members.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--orange)">${pend?.length||0}</div><div class="stat-sub">need review</div></div>
-    <div class="stat-card"><div class="stat-label">Pts Awarded</div><div class="stat-value">${totalAw}</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" style="color:var(--orange)">${pendCount}</div><div class="stat-sub">need review</div></div>
+    <div class="stat-card"><div class="stat-label">Pts Awarded</div><div class="stat-value">${totalAw}</div><div class="stat-sub">${activeSemester.name}</div></div>
     <div class="stat-card"><div class="stat-label">Upcoming Events</div><div class="stat-value">${upcoming?.length||0}</div></div>`;
 
-  // Update pending badge on nav
-  const pendCount = pend?.length||0;
   document.getElementById('pend-badge').textContent = pendCount;
   document.querySelectorAll('.nav-tab[data-p="dashboard"]').forEach(t => {
     const existing = t.querySelector('.tab-badge');
@@ -970,71 +1090,51 @@ async function renderDash() {
   });
 
   // ── Attendance Confirmation ──
-  // Past events that have RSVPs and points, where attendance hasn't been fully confirmed yet
   const { data: pastEvs } = await db.from('events')
     .select('*, rsvps(member_id, members(name,role))')
-    .lt('date', today())
-    .gt('points', 0)
-    .order('date', { ascending: false })
-    .limit(10);
+    .lt('date', today()).gt('points', 0)
+    .order('date', { ascending: false }).limit(10);
 
-  // For each past event, find which RSVPed members have NOT yet received points for it
   const attendSection = document.getElementById('attend-section');
   const evsPendingConfirm = [];
-
   for (const ev of (pastEvs||[])) {
     const rsvpList = ev.rsvps||[];
     if (!rsvpList.length) continue;
-    // Check who already got points for this event
     const { data: alreadyAwarded } = await db.from('history').select('member_id').eq('event_id', ev.id);
     const awardedSet = new Set((alreadyAwarded||[]).map(h => h.member_id));
     const needsConfirm = rsvpList.filter(r => !awardedSet.has(r.member_id));
-    if (needsConfirm.length > 0) {
-      evsPendingConfirm.push({ ev, needsConfirm });
-    }
+    if (needsConfirm.length > 0) evsPendingConfirm.push({ ev, needsConfirm });
   }
 
   const attendBadge = document.getElementById('attend-badge');
-  if (attendBadge) {
-    attendBadge.style.display = evsPendingConfirm.length ? '' : 'none';
-    attendBadge.textContent = evsPendingConfirm.length;
-  }
+  if (attendBadge) { attendBadge.style.display = evsPendingConfirm.length ? '' : 'none'; attendBadge.textContent = evsPendingConfirm.length; }
 
-  if (!evsPendingConfirm.length) {
-    attendSection.innerHTML = '<div class="empty-state">No past events pending attendance confirmation.</div>';
-  } else {
-    attendSection.innerHTML = evsPendingConfirm.map(({ ev, needsConfirm }) => `
-      <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-          <div>
-            <span style="font-weight:500;color:var(--text)">${ev.name}</span>
-            <span style="color:var(--text-muted);font-size:12px;margin-left:8px">${fmtDate(ev.date)}</span>
-            <span class="points-chip" style="margin-left:8px">+${ev.points} pts each</span>
-          </div>
-          <button class="btn btn-success btn-sm" onclick="approveAllAttendance('${ev.id}','${ev.name.replace(/'/g,"\\'")}',${ev.points},'${ev.date}',${JSON.stringify(needsConfirm.map(r=>r.member_id))})">
-            ✓ Approve All
-          </button>
+  attendSection.innerHTML = evsPendingConfirm.length ? evsPendingConfirm.map(({ ev, needsConfirm }) => `
+    <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-weight:500;color:var(--text)">${ev.name}</span>
+          <span style="color:var(--text-muted);font-size:12px;margin-left:8px">${fmtDate(ev.date)}</span>
+          <span class="points-chip" style="margin-left:8px">+${ev.points} pts each</span>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${needsConfirm.map(r => `
-            <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:white;transition:all .12s" 
-                   onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--border)'">
-              <input type="checkbox" checked data-ev="${ev.id}" data-mem="${r.member_id}" style="width:14px;height:14px;accent-color:var(--navy)">
-              <div class="member-avatar" style="width:22px;height:22px;font-size:9px;${r.members?.role==='ec'?'background:var(--violet)':''}">${ini(r.members?.name||'?')}</div>
-              <span style="font-size:13px;color:var(--text)">${r.members?.name||'Unknown'}</span>
-            </label>
-          `).join('')}
-        </div>
-        <div style="margin-top:10px">
-          <button class="btn btn-navy btn-sm" onclick="approveCheckedAttendance('${ev.id}','${ev.name.replace(/'/g,"\\'")}',${ev.points},'${ev.date}')">
-            ✓ Award Points to Checked Members
-          </button>
-        </div>
+        <button class="btn btn-success btn-sm" onclick="approveAllAttendance('${ev.id}','${ev.name.replace(/'/g,"\\'")}',${ev.points},'${ev.date}',${JSON.stringify(needsConfirm.map(r=>r.member_id))})">✓ Approve All</button>
       </div>
-    `).join('');
-  }
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        ${needsConfirm.map(r => `
+          <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:white"
+                 onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--border)'">
+            <input type="checkbox" checked data-ev="${ev.id}" data-mem="${r.member_id}" style="width:14px;height:14px;accent-color:var(--navy)">
+            <div class="member-avatar" style="width:22px;height:22px;font-size:9px">${ini(r.members?.name||'?')}</div>
+            <span style="font-size:13px;color:var(--text)">${r.members?.name||'Unknown'}</span>
+          </label>`).join('')}
+      </div>
+      <div style="margin-top:10px">
+        <button class="btn btn-navy btn-sm" onclick="approveCheckedAttendance('${ev.id}','${ev.name.replace(/'/g,"\\'")}',${ev.points},'${ev.date}')">✓ Award Points to Checked Members</button>
+      </div>
+    </div>`).join('')
+    : '<div class="empty-state">No past events pending attendance confirmation.</div>';
 
-  // Pending submissions table
+  // ── Pending submissions ──
   document.getElementById('pend-tbody').innerHTML = pendCount ? (pend||[]).map(s => {
     const mem = s.members;
     const catLabel = {service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[s.type]||s.type;
@@ -1042,25 +1142,42 @@ async function renderDash() {
       <td>${fmtDate(s.submitted_at?.split('T')[0])}</td>
       <td><div class="member-name-cell"><div class="member-avatar ${mem?.role==='ec'?'ec':''}">${ini(mem?.name)}</div>${mem?.name||'Unknown'}</div></td>
       <td>${catBadge(s.type, catLabel)}</td>
-      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.org}: ${s.description}">${s.org}: ${s.description}${s.supervisor?' · '+s.supervisor:''}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.org}: ${s.description}${s.supervisor?' · '+s.supervisor:''}</td>
       <td><span class="points-chip">${s.hours} pts</span></td>
       <td><div class="action-btns">
-        <button class="btn btn-success btn-sm" onclick="reviewSub('${s.id}','${s.member_id}','${s.type}',${s.hours},'${s.description}','${s.org}','${s.date}')">✓ Approve</button>
+        <button class="btn btn-success btn-sm" onclick="reviewSub('${s.id}','${s.member_id}','${s.type}',${s.hours},'${s.description}','${s.org}','${s.date}','${s.semester_id||sid}')">✓ Approve</button>
         <button class="btn btn-danger btn-sm" onclick="rejectSub('${s.id}')">✗ Reject</button>
       </div></td>
     </tr>`;
   }).join('') : '<tr><td colspan="6" class="empty-state">No pending submissions — all clear!</td></tr>';
 
-  // Leaderboard
-  const sorted = [...members].sort((a,b) => totalPts(b)-totalPts(a));
+  // ── Leaderboard ──
+  const sorted = [...members].sort((a,b) => (b.pts_service+b.pts_attend+b.pts_event+b.custom_sum) - (a.pts_service+a.pts_attend+a.pts_event+a.custom_sum));
   const rnk = ['🥇','🥈','🥉'];
-  document.getElementById('lb-tbody').innerHTML = sorted.map((m,i) => `<tr>
-    <td style="font-size:16px">${rnk[i]||(i+1)}</td>
-    <td><div class="member-name-cell"><div class="member-avatar ${m.role==='ec'?'ec':''}">${ini(m.name)}</div>${m.name}</div></td>
-    <td><span class="role-chip ${m.role}" style="font-size:9px;padding:2px 7px;border-radius:20px;background:${m.role==='ec'?'var(--violet-bg)':'var(--gold-pale)'};color:${m.role==='ec'?'var(--violet)':'#92400e'}">${m.role==='ec'?'EC':'Member'}</span></td>
-    <td><span class="points-chip" style="font-size:13px">${totalPts(m)}</span></td>
-    <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${m.custom_sum||0}</td>
-  </tr>`).join('');
+
+  // Load semester custom pts per member for good standing
+  const { data: semCustFull } = await db.from('semester_custom_points')
+    .select('member_id, points, custom_categories(name,color)').eq('semester_id', sid);
+  const custByMem = {};
+  (semCustFull||[]).forEach(r => {
+    if (!custByMem[r.member_id]) custByMem[r.member_id] = [];
+    custByMem[r.member_id].push(r);
+  });
+
+  document.getElementById('lb-tbody').innerHTML = sorted.map((m,i) => {
+    const tot = m.pts_service+m.pts_attend+m.pts_event+m.custom_sum;
+    const { inGoodStanding } = m.role==='member' ? calcGoodStanding(m, custByMem[m.id]||[]) : { inGoodStanding: null };
+    const gsIcon = m.role==='member' ? (inGoodStanding
+      ? '<span style="color:var(--green);font-size:13px">✓</span>'
+      : '<span style="color:var(--red);font-size:13px">✗</span>') : '';
+    return `<tr>
+      <td style="font-size:16px">${rnk[i]||(i+1)}</td>
+      <td><div class="member-name-cell"><div class="member-avatar ${m.role==='ec'?'ec':''}">${ini(m.name)}</div>${m.name} ${gsIcon}</div></td>
+      <td><span style="font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 7px;border-radius:20px;background:${m.role==='ec'?'var(--violet-bg)':'var(--gold-pale)'};color:${m.role==='ec'?'var(--violet)':'#92400e'}">${m.role==='ec'?'EC':'Member'}</span></td>
+      <td><span class="points-chip" style="font-size:13px">${tot}</span></td>
+      <td>${m.pts_service}</td><td>${m.pts_attend}</td><td>${m.pts_event}</td><td>${m.custom_sum}</td>
+    </tr>`;
+  }).join('');
 }
 
 // Award points to all RSVPed members for an event
@@ -1087,24 +1204,25 @@ async function approveCheckedAttendance(evId, evName, pts, date) {
 
 // Helper: award event points to one member
 async function awardEventPts(memberId, evId, evName, pts, date) {
-  const { data: mem } = await db.from('members').select('pts_event').eq('id', memberId).single();
-  if (!mem) return;
-  await db.from('members').update({ pts_event: (mem.pts_event||0) + pts }).eq('id', memberId);
+  const sid = activeSemester?.id;
+  if (!sid) return;
+  const semPts = await getSemesterPts(memberId, sid);
+  await upsertSemesterPts(memberId, sid, { pts_event: (semPts.pts_event||0) + pts });
   await db.from('history').insert({
     member_id: memberId, event_id: evId,
     cat_key: 'event', cat_label: 'Event Participation',
-    description: `Attended: ${evName}`, points: pts, date
+    description: `Attended: ${evName}`, points: pts, date, semester_id: sid
   });
 }
 
-async function reviewSub(id, memberId, type, hours, desc, org, date) {
+async function reviewSub(id, memberId, type, hours, desc, org, date, semId) {
   const col = {service:'pts_service',attendance:'pts_attend',event:'pts_event'}[type]||'pts_service';
-  const { data: mem } = await db.from('members').select(col).eq('id', memberId).single();
-  if (!mem) return;
-  await db.from('members').update({ [col]: (mem[col]||0) + hours }).eq('id', memberId);
+  const semPts = await getSemesterPts(memberId, semId);
+  const updates = { [col]: (semPts[col]||0) + hours };
+  await upsertSemesterPts(memberId, semId, updates);
   await db.from('submissions').update({ status:'approved' }).eq('id', id);
   const catLabel = {service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[type]||type;
-  await db.from('history').insert({ member_id: memberId, cat_key: type, cat_label: catLabel, description: `${desc} @ ${org} (approved)`, points: hours, date });
+  await db.from('history').insert({ member_id: memberId, cat_key: type, cat_label: catLabel, description: `${desc} @ ${org} (approved)`, points: hours, date, semester_id: semId });
   toast(`✓ ${hours} pts approved!`);
   renderDash();
 }
@@ -1119,34 +1237,31 @@ async function rejectSub(id) {
 //  MEMBERS
 // ══════════════════════════════════════════════════════
 async function renderMembers() {
-  const { data: mems }    = await db.from('members').select('*').order('role').order('name');
-  const { data: custPts } = await db.from('custom_points').select('member_id, points, custom_categories(name,color)');
-
-  // Group custom points by member
-  const custByMember = {};
-  (custPts||[]).forEach(r => {
-    if (!custByMember[r.member_id]) custByMember[r.member_id] = [];
-    custByMember[r.member_id].push(r);
-  });
-
+  const { data: mems } = await db.from('members').select('*').order('role').order('name');
+  const sid = activeSemester?.id;
+  const semPtsMap = {}, custByMember = {};
+  if (sid) {
+    const { data: sp }  = await db.from('semester_points').select('*').eq('semester_id', sid);
+    const { data: scp } = await db.from('semester_custom_points').select('member_id,points,custom_categories(name,color)').eq('semester_id', sid);
+    (sp||[]).forEach(r  => { semPtsMap[r.member_id] = r; });
+    (scp||[]).forEach(r => { if(!custByMember[r.member_id]) custByMember[r.member_id]=[]; custByMember[r.member_id].push(r); });
+  }
   const roleStyle = {
     admin:  { bg:'var(--gold-pale)', color:'var(--navy)',       label:'Admin'  },
     ec:     { bg:'var(--violet-bg)', color:'var(--violet)',     label:'EC'     },
     member: { bg:'#f0f2f8',          color:'var(--text-muted)', label:'Member' },
   };
-
   document.getElementById('mem-tbody').innerHTML = (mems||[]).map(m => {
+    const sp     = semPtsMap[m.id]||{pts_service:0,pts_attend:0,pts_event:0};
     const mCust  = custByMember[m.id]||[];
-    const csum   = mCust.reduce((a,r) => a+(r.points||0), 0);
-    const tot    = (m.pts_service||0)+(m.pts_attend||0)+(m.pts_event||0)+csum;
+    const csum   = mCust.reduce((a,r)=>a+(r.points||0),0);
+    const tot    = (sp.pts_service||0)+(sp.pts_attend||0)+(sp.pts_event||0)+csum;
+    const mForGs = {...m, pts_service:sp.pts_service||0, pts_attend:sp.pts_attend||0, pts_event:sp.pts_event||0};
     const rs     = roleStyle[m.role]||roleStyle.member;
-    const isSelf    = m.id === cu.id;
-    const canRemove = cu.role==='admin' && !isSelf;
-    const avatarBg  = m.role==='admin' ? 'background:var(--navy)' : m.role==='ec' ? 'background:var(--violet)' : '';
-    const { inGoodStanding } = m.role === 'member' ? calcGoodStanding(m, mCust) : { inGoodStanding: null };
-    const standingCell = m.role === 'member'
-      ? goodStandingBadge(inGoodStanding)
-      : '<span style="color:var(--text-faint)">—</span>';
+    const isSelf    = m.id===cu.id, canRemove=cu.role==='admin'&&!isSelf;
+    const avatarBg  = m.role==='admin'?'background:var(--navy)':m.role==='ec'?'background:var(--violet)':'';
+    const {inGoodStanding} = m.role==='member'?calcGoodStanding(mForGs,mCust):{inGoodStanding:null};
+    const standingCell = m.role==='member'?goodStandingBadge(inGoodStanding):'<span style="color:var(--text-faint)">—</span>';
     return `<tr style="cursor:pointer" onclick="viewMember('${m.id}')">
       <td><div class="member-name-cell">
         <div class="member-avatar" style="${avatarBg}">${ini(m.name)}</div>
@@ -1156,9 +1271,9 @@ async function renderMembers() {
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)">${m.username}</td>
       <td><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:20px;background:${rs.bg};color:${rs.color}">${rs.label}</span></td>
       <td><span class="points-chip">${tot}</span></td>
-      <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${csum}</td>
+      <td>${sp.pts_service||0}</td><td>${sp.pts_attend||0}</td><td>${sp.pts_event||0}</td><td>${csum}</td>
       <td>${standingCell}</td>
-      <td onclick="event.stopPropagation()">${canRemove ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : '—'}</td>
+      <td onclick="event.stopPropagation()">${canRemove?`<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>`:'—'}</td>
     </tr>`;
   }).join('');
 }
@@ -1171,104 +1286,113 @@ async function removeMember(id) {
 }
 
 async function saveMember() {
-  const f = document.getElementById('nm-f').value.trim();
-  const l = document.getElementById('nm-l').value.trim();
-  const u = document.getElementById('nm-u').value.trim().toLowerCase();
-  const p = document.getElementById('nm-p').value;
-  const r = document.getElementById('nm-r').value;
-  if (!f||!l||!u||!p) { toast('All fields required.', 'error'); return; }
-  const { error } = await db.from('members').insert({ name:`${f} ${l}`, username:u, password:p, role:r });
-  if (error) { toast(error.code==='23505'?'Username already exists.':'Error adding member.', 'error'); return; }
+  const f=document.getElementById('nm-f').value.trim(),l=document.getElementById('nm-l').value.trim();
+  const u=document.getElementById('nm-u').value.trim().toLowerCase(),p=document.getElementById('nm-p').value;
+  const r=document.getElementById('nm-r').value;
+  if(!f||!l||!u||!p){toast('All fields required.','error');return;}
+  const {error}=await db.from('members').insert({name:`${f} ${l}`,username:u,password:p,role:r});
+  if(error){toast(error.code==='23505'?'Username already exists.':'Error adding member.','error');return;}
   closeModal('modal-member');
-  ['nm-f','nm-l','nm-u','nm-p'].forEach(id => document.getElementById(id).value = '');
-  const roleLabel = { admin:'Admin/Advisor', ec:'EC Member', member:'Member' }[r]||r;
-  toast(`✓ ${f} ${l} added as ${roleLabel}.`);
+  ['nm-f','nm-l','nm-u','nm-p'].forEach(id=>document.getElementById(id).value='');
+  toast(`✓ ${f} ${l} added as ${{admin:'Admin/Advisor',ec:'EC Member',member:'Member'}[r]||r}.`);
   renderMembers();
 }
 
-async function viewMember(id) {
-  // Load member + their custom points + history + pending submissions
-  const { data: m }        = await db.from('members').select('*').eq('id', id).single();
-  const { data: custPts }  = await db.from('custom_points').select('points, custom_categories(name,color)').eq('member_id', id);
-  const { data: hist }     = await db.from('history').select('*').eq('member_id', id).order('date', { ascending: false });
-  const { data: subs }     = await db.from('submissions').select('*').eq('member_id', id).neq('status','approved').order('submitted_at', { ascending: false });
+// Profile modal — stores member id for semester switching
+let _profileMemberId = null;
 
+async function viewMember(id) {
+  _profileMemberId = id;
+  // Populate semester selector
+  const sel = document.getElementById('profile-sem-sel');
+  sel.innerHTML = allSemesters.map(s =>
+    `<option value="${s.id}" ${s.id===activeSemester?.id?'selected':''}>${s.name}${s.is_active?' (current)':''}</option>`
+  ).join('');
+  await loadProfileSemester(id, activeSemester?.id);
+  openModal('modal-profile');
+}
+
+async function switchProfileSemester() {
+  if (!_profileMemberId) return;
+  const sid = document.getElementById('profile-sem-sel').value;
+  await loadProfileSemester(_profileMemberId, sid);
+}
+
+async function loadProfileSemester(memberId, semesterId) {
+  const { data: m } = await db.from('members').select('*').eq('id', memberId).single();
   if (!m) return;
 
-  const custSum = (custPts||[]).reduce((a,r) => a + (r.points||0), 0);
-  const total   = (m.pts_service||0) + (m.pts_attend||0) + (m.pts_event||0) + custSum;
+  const semPts  = semesterId ? await getSemesterPts(memberId, semesterId) : {pts_service:0,pts_attend:0,pts_event:0};
+  const custPts = semesterId ? await getSemesterCustomPts(memberId, semesterId) : [];
+  const custSum = custPts.reduce((a,r)=>a+(r.points||0),0);
+  const mForGs  = {...m, pts_service:semPts.pts_service||0, pts_attend:semPts.pts_attend||0, pts_event:semPts.pts_event||0};
+  const total   = (semPts.pts_service||0)+(semPts.pts_attend||0)+(semPts.pts_event||0)+custSum;
   const goal    = parseInt(settings.point_goal)||100;
-  const pct     = Math.min(100, Math.round(total / goal * 100));
+  const pct     = Math.min(100, Math.round(total/goal*100));
+  const sem     = allSemesters.find(s=>s.id===semesterId);
 
-  const avatarBg = m.role==='admin' ? 'var(--navy)' : m.role==='ec' ? 'var(--violet)' : 'var(--navy)';
-  const roleLabel = { admin:'Admin / Advisor', ec:'Executive Committee', member:'Member' }[m.role]||m.role;
+  const avatarBg  = m.role==='admin'?'var(--navy)':m.role==='ec'?'var(--violet)':'var(--navy)';
+  const roleLabel = {admin:'Admin / Advisor',ec:'Executive Committee',member:'Member'}[m.role]||m.role;
 
-  document.getElementById('profile-avatar').textContent = ini(m.name);
+  document.getElementById('profile-avatar').textContent  = ini(m.name);
   document.getElementById('profile-avatar').style.background = avatarBg;
-  document.getElementById('profile-name').textContent = m.name;
-  document.getElementById('profile-meta').textContent = `@${m.username} · ${roleLabel}`;
-  document.getElementById('profile-total').textContent = total;
-  document.getElementById('profile-pct').textContent = `${pct}% of ${goal} pt goal`;
-  document.getElementById('profile-bar').style.width = pct + '%';
+  document.getElementById('profile-name').textContent    = m.name;
+  document.getElementById('profile-meta').textContent    = `@${m.username} · ${roleLabel}${sem?' · '+sem.name:''}`;
+  document.getElementById('profile-total').textContent   = total;
+  document.getElementById('profile-pct').textContent     = `${pct}% of ${goal} pt goal`;
+  document.getElementById('profile-bar').style.width     = pct+'%';
 
-  // Clear any previously injected good standing section
+  // Good standing
   const prevGs = document.getElementById('profile-gs-section');
   if (prevGs) prevGs.remove();
-
-  // Good standing checklist (members only)
-  const gsHtml = m.role === 'member' ? (() => {
-    const { checks, inGoodStanding } = calcGoodStanding(m, custPts||[]);
-    return `<div id="profile-gs-section" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <span style="font-weight:500;font-size:13px;color:var(--text)">Good Standing</span>
-        ${goodStandingBadge(inGoodStanding)}
-      </div>
-      ${goodStandingChecklist(checks)}
-    </div>`;
-  })() : '';
-
-  // Inject good standing above stat grid
-  document.getElementById('profile-stat-grid').insertAdjacentHTML('beforebegin', gsHtml);
+  if (m.role==='member' && semesterId) {
+    const {checks, inGoodStanding} = calcGoodStanding(mForGs, custPts);
+    document.getElementById('profile-stat-grid').insertAdjacentHTML('beforebegin',
+      `<div id="profile-gs-section" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-weight:500;font-size:13px;color:var(--text)">Good Standing</span>
+          ${goodStandingBadge(inGoodStanding)}
+        </div>
+        ${goodStandingChecklist(checks)}
+      </div>`);
+  }
 
   // Stat cards
-  const statItems = [
-    { label:'Service',    val: m.pts_service||0 },
-    { label:'Attendance', val: m.pts_attend||0  },
-    { label:'Events',     val: m.pts_event||0   },
-    ...(custPts||[]).filter(r=>r.points>0).map(r => ({ label: r.custom_categories?.name||'Custom', val: r.points })),
-  ];
-  document.getElementById('profile-stat-grid').innerHTML = statItems.map(s => `
-    <div style="background:var(--ground);border-radius:var(--radius-sm);padding:12px 14px;border:1px solid var(--border)">
-      <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px">${s.label}</div>
-      <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--navy)">${s.val}</div>
-    </div>`).join('');
+  document.getElementById('profile-stat-grid').innerHTML = [
+    {label:'Service',    val:semPts.pts_service||0},
+    {label:'Attendance', val:semPts.pts_attend||0 },
+    {label:'Events',     val:semPts.pts_event||0  },
+    ...custPts.filter(r=>r.points>0).map(r=>({label:r.custom_categories?.name||'Custom',val:r.points})),
+  ].map(s=>`<div style="background:var(--ground);border-radius:var(--radius-sm);padding:12px 14px;border:1px solid var(--border)">
+    <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px">${s.label}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--navy)">${s.val}</div>
+  </div>`).join('');
 
-  // History rows — combine approved history + pending/rejected submissions
-  const histRows = (hist||[]).map(h => ({
-    date: h.date, catKey: h.cat_key, catLabel: h.cat_label,
-    desc: h.description, pts: h.points, status: 'approved'
-  }));
-  const subRows = (subs||[]).map(s => ({
-    date: s.date,
-    catKey: s.type,
-    catLabel: { service:'Service Hours', event:'Event Participation', attendance:'Attendance' }[s.type]||s.type,
-    desc: `${s.description} @ ${s.org}`,
-    pts: s.hours,
-    status: s.status
-  }));
-  const rows = [...histRows, ...subRows].sort((a,b) => b.date.localeCompare(a.date));
+  // History for selected semester
+  const histQ = semesterId
+    ? db.from('history').select('*').eq('member_id', memberId).eq('semester_id', semesterId).order('date',{ascending:false})
+    : db.from('history').select('*').eq('member_id', memberId).order('date',{ascending:false});
+  const { data: hist } = await histQ;
+
+  const subsQ = semesterId
+    ? db.from('submissions').select('*').eq('member_id', memberId).eq('semester_id', semesterId).neq('status','approved').order('submitted_at',{ascending:false})
+    : db.from('submissions').select('*').eq('member_id', memberId).neq('status','approved').order('submitted_at',{ascending:false});
+  const { data: subs } = await subsQ;
+
+  const rows = [
+    ...(hist||[]).map(h=>({date:h.date,catKey:h.cat_key,catLabel:h.cat_label,desc:h.description,pts:h.points,status:'approved'})),
+    ...(subs||[]).map(s=>({date:s.date,catKey:s.type,catLabel:{service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[s.type]||s.type,desc:`${s.description} @ ${s.org}`,pts:s.hours,status:s.status})),
+  ].sort((a,b)=>b.date.localeCompare(a.date));
 
   document.getElementById('profile-hist-tbody').innerHTML = rows.length
-    ? rows.map(r => `<tr>
+    ? rows.map(r=>`<tr>
         <td style="color:var(--text-muted);white-space:nowrap">${fmtDate(r.date)}</td>
-        <td>${catBadge(r.catKey, r.catLabel)}</td>
+        <td>${catBadge(r.catKey,r.catLabel)}</td>
         <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
-        <td><span class="points-chip">${r.status==='pending' ? r.pts+' req.' : r.status==='rejected' ? '—' : '+'+r.pts}</span></td>
+        <td><span class="points-chip">${r.status==='pending'?r.pts+' req.':r.status==='rejected'?'—':'+'+r.pts}</span></td>
         <td><span class="badge badge-${r.status}">${r.status.charAt(0).toUpperCase()+r.status.slice(1)}</span></td>
       </tr>`).join('')
-    : '<tr><td colspan="5" class="empty-state">No activity yet.</td></tr>';
-
-  openModal('modal-profile');
+    : '<tr><td colspan="5" class="empty-state">No activity for this semester.</td></tr>';
 }
 
 // ══════════════════════════════════════════════════════
@@ -1295,6 +1419,7 @@ function awCatChange() {
 }
 
 async function awardPts() {
+  if (!activeSemester) { toast('No active semester set up.', 'error'); return; }
   const memberId = document.getElementById('aw-mem').value;
   const catVal   = document.getElementById('aw-cat').value;
   const pts      = parseInt(document.getElementById('aw-pts').value);
@@ -1305,48 +1430,44 @@ async function awardPts() {
   const btn = document.getElementById('aw-btn');
   btn.disabled = true; btn.textContent = 'Awarding…';
 
+  const sid = activeSemester.id;
   let catKey, catLabel;
 
   if (['service','attendance','event'].includes(catVal)) {
     const col = {service:'pts_service',attendance:'pts_attend',event:'pts_event'}[catVal];
-    catKey = catVal;
+    catKey   = catVal;
     catLabel = {service:'Service Hours',attendance:'Meeting Attendance',event:'Event Participation'}[catVal];
-    const { data: m } = await db.from('members').select(col).eq('id', memberId).single();
-    await db.from('members').update({ [col]: (m[col]||0) + pts }).eq('id', memberId);
+    const semPts = await getSemesterPts(memberId, sid);
+    await upsertSemesterPts(memberId, sid, { [col]: (semPts[col]||0) + pts });
   } else if (catVal.startsWith('custom_') && catVal !== 'custom_new') {
     const catId = catVal.replace('custom_','');
-    const cat = customCats.find(c => c.id === catId);
+    const cat   = customCats.find(c => c.id === catId);
     if (!cat) { toast('Category not found.', 'error'); btn.disabled=false; btn.textContent='Award Points ✦'; return; }
-    catKey = 'custom'; catLabel = cat.name;
-    const { data: existing } = await db.from('custom_points').select('*').eq('member_id', memberId).eq('category_id', catId).single();
-    if (existing) {
-      await db.from('custom_points').update({ points: existing.points + pts }).eq('id', existing.id);
-    } else {
-      await db.from('custom_points').insert({ member_id: memberId, category_id: catId, points: pts });
-    }
+    catKey   = 'custom';
+    catLabel = cat.name;
+    await upsertSemesterCustomPts(memberId, sid, catId, pts);
   } else {
     const nm = document.getElementById('aw-cust-nm').value.trim();
     if (!nm) { toast('Enter a custom category name.', 'error'); btn.disabled=false; btn.textContent='Award Points ✦'; return; }
     let cat = customCats.find(c => c.name.toLowerCase()===nm.toLowerCase());
     if (!cat) {
-      const { data: newCat } = await db.from('custom_categories').insert({ name: nm, color:'gold' }).select().single();
+      const { data: newCat } = await db.from('custom_categories').insert({ name:nm, color:'gold' }).select().single();
       cat = newCat;
       await loadCustomCats();
     }
-    catKey = 'custom'; catLabel = nm;
-    const { data: existing } = await db.from('custom_points').select('*').eq('member_id', memberId).eq('category_id', cat.id).single();
-    if (existing) {
-      await db.from('custom_points').update({ points: existing.points + pts }).eq('id', existing.id);
-    } else {
-      await db.from('custom_points').insert({ member_id: memberId, category_id: cat.id, points: pts });
-    }
+    catKey   = 'custom';
+    catLabel = nm;
+    await upsertSemesterCustomPts(memberId, sid, cat.id, pts);
     document.getElementById('aw-cust-nm').value = '';
     document.getElementById('aw-cust-grp').style.display = 'none';
     rebuildCatSel();
   }
 
   const { data: mem } = await db.from('members').select('name').eq('id', memberId).single();
-  await db.from('history').insert({ member_id: memberId, cat_key: catKey, cat_label: catLabel, description: note + ' (officer award)', points: pts, date: today() });
+  await db.from('history').insert({
+    member_id: memberId, cat_key: catKey, cat_label: catLabel,
+    description: note + ' (officer award)', points: pts, date: today(), semester_id: sid
+  });
 
   btn.disabled = false; btn.textContent = 'Award Points ✦';
   document.getElementById('aw-pts').value = '';
@@ -1522,12 +1643,26 @@ function goodStandingChecklist(checks) {
 
 // ── SETTINGS ──
 async function renderSettings() {
-  document.getElementById('set-goal').value     = settings.point_goal||100;
-  document.getElementById('gs-dues').value      = settings.gs_dues||1;
-  document.getElementById('gs-meetings').value  = settings.gs_meetings||3;
-  document.getElementById('gs-service').value   = settings.gs_service||3;
-  document.getElementById('gs-misc').value      = settings.gs_misc||4;
+  document.getElementById('set-goal').value    = settings.point_goal||100;
+  document.getElementById('gs-dues').value     = settings.gs_dues||1;
+  document.getElementById('gs-meetings').value = settings.gs_meetings||3;
+  document.getElementById('gs-service').value  = settings.gs_service||3;
+  document.getElementById('gs-misc').value     = settings.gs_misc||4;
 
+  // Semester list
+  const semList = document.getElementById('semester-list');
+  semList.innerHTML = allSemesters.length ? allSemesters.map(s => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px">
+      <div>
+        <span style="font-weight:500;color:var(--text)">${s.name}</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${fmtDate(s.start_date)} — ${fmtDate(s.end_date)}</span>
+        ${s.is_active ? '<span class="badge badge-approved" style="margin-left:8px">Active</span>' : ''}
+      </div>
+      ${!s.is_active ? `<button class="btn btn-outline btn-sm" onclick="setActiveSemester('${s.id}')">Set Active</button>` : ''}
+    </div>`).join('')
+    : '<div class="empty-state" style="padding:16px">No semesters yet.</div>';
+
+  // Custom categories list
   const list = document.getElementById('cat-list');
   list.innerHTML = customCats.length ? customCats.map(cat => {
     const c = COLMAP[cat.color]||COLMAP.gold;
@@ -1538,16 +1673,43 @@ async function renderSettings() {
   }).join('') : '<div class="empty-state" style="padding:16px">No custom categories yet.</div>';
 }
 
+async function saveSemester() {
+  const name  = document.getElementById('sem-name').value.trim();
+  const start = document.getElementById('sem-start').value;
+  const end   = document.getElementById('sem-end').value;
+  const makeActive = document.getElementById('sem-active').value === 'yes';
+  if (!name||!start||!end) { toast('Name, start and end date are required.', 'error'); return; }
+  if (makeActive) await db.from('semesters').update({ is_active: false }).eq('is_active', true);
+  const { error } = await db.from('semesters').insert({ name, start_date: start, end_date: end, is_active: makeActive });
+  if (error) { toast('Error creating semester.', 'error'); return; }
+  await loadSemesters();
+  closeModal('modal-semester');
+  ['sem-name','sem-start','sem-end'].forEach(id => document.getElementById(id).value = '');
+  const semBadge = document.getElementById('semester-badge');
+  if (semBadge) semBadge.textContent = activeSemester?.name || 'No Active Semester';
+  renderSettings();
+  toast(`✓ Semester "${name}" created${makeActive?' and set as active':''}.`);
+}
+
+async function setActiveSemester(id) {
+  if (!confirm('Set this as the active semester? The current one will be archived.')) return;
+  await db.from('semesters').update({ is_active: false }).eq('is_active', true);
+  await db.from('semesters').update({ is_active: true  }).eq('id', id);
+  await loadSemesters();
+  const semBadge = document.getElementById('semester-badge');
+  if (semBadge) semBadge.textContent = activeSemester?.name || 'No Active Semester';
+  renderSettings();
+  toast(`✓ Active semester switched to "${activeSemester?.name}".`);
+}
+
 async function saveGoodStanding() {
   const dues     = parseInt(document.getElementById('gs-dues').value)||0;
   const meetings = parseInt(document.getElementById('gs-meetings').value)||0;
   const service  = parseInt(document.getElementById('gs-service').value)||0;
   const misc     = parseInt(document.getElementById('gs-misc').value)||0;
   await Promise.all([
-    saveSetting('gs_dues',     dues),
-    saveSetting('gs_meetings', meetings),
-    saveSetting('gs_service',  service),
-    saveSetting('gs_misc',     misc),
+    saveSetting('gs_dues', dues), saveSetting('gs_meetings', meetings),
+    saveSetting('gs_service', service), saveSetting('gs_misc', misc),
   ]);
   toast('✓ Good standing requirements saved.');
 }
