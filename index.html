@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gamma Beta Phi Point Tracker</title>
+<title>Org Points Portal</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -241,7 +241,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
 
 <!-- LOADING -->
 <div id="loading-screen">
-  <div class="loading-logo">Gamma Beta Phi</div>
+  <div class="loading-logo">⭐ OrgTracker</div>
   <div class="loading-spinner"></div>
   <div class="loading-msg" id="loading-msg">Connecting to database…</div>
 </div>
@@ -251,8 +251,8 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
   <div class="login-card">
     <div class="login-logo">
       <div class="star-badge">⭐</div>
-      <div class="org-name">Gamma Beta Phi<br>Point Tracker</div>
-      <div class="org-sub">Member Tracker</div>
+      <div class="org-name">Student Org<br>Points Portal</div>
+      <div class="org-sub">Higher Education · Member Tracker</div>
     </div>
     <div class="login-form">
       <label>Username</label>
@@ -269,7 +269,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
 <div id="app">
   <div class="topbar">
     <div class="topbar-left">
-      <div class="topbar-logo">Gamma Beta Phi</div>
+      <div class="topbar-logo">⭐ OrgTracker</div>
       <div class="role-badge" id="role-badge">Member</div>
     </div>
     <div class="topbar-right">
@@ -317,7 +317,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
         <div class="section-title">Submit Service Points</div>
       </div>
       <div class="card">
-        <div class="alert alert-info">ℹ️ Points are awarded after an officer or advisor approves your submission.</div>
+        <div class="alert alert-info">ℹ️ Points are awarded after an officer or EC member approves your submission.</div>
         <div class="form-group">
           <label class="form-label">Activity Type</label>
           <select class="form-select" id="sub-type">
@@ -361,8 +361,8 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       <div class="teams-link-box">
         <div class="teams-icon">T</div>
         <div style="flex:1;min-width:0">
-          <!--<div style="font-size:10px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Microsoft Teams / Outlook Calendar</div>
-          <input id="teams-url" placeholder="Paste your Teams channel or Outlook calendar link…"/>-->
+          <div style="font-size:10px;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Microsoft Teams / Outlook Calendar</div>
+          <input id="teams-url" placeholder="Paste your Teams channel or Outlook calendar link…"/>
         </div>
         <span id="teams-status-txt" style="font-size:12px;color:var(--text-muted);white-space:nowrap">
           <span class="status-dot off" id="teams-dot"></span>Not connected
@@ -395,6 +395,14 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
         <div class="section-title" id="dash-title">Dashboard</div>
       </div>
       <div class="stat-grid" id="dash-stat-grid"></div>
+      <div class="card">
+        <div class="card-title">
+          Confirm Event Attendance
+          <span class="badge badge-pending" id="attend-badge" style="display:none">!</span>
+        </div>
+        <div class="alert alert-info" style="margin-bottom:12px">ℹ️ Select which members actually attended each past event to award their points.</div>
+        <div id="attend-section"><div class="empty-state">No past events with RSVPs pending confirmation.</div></div>
+      </div>
       <div class="card">
         <div class="card-title">
           Pending Submissions
@@ -517,10 +525,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="ev-dt"/></div>
       <div class="form-group"><label class="form-label">Points (0 = info only)</label><input type="number" class="form-input" id="ev-pts" min="0" placeholder="10"/></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="ev-tp"><option value="meeting">Meeting</option><option value="service">Service</option><option value="event">Event</option></select></div>
-      <div class="form-group"><label class="form-label">Auto-award on RSVP date?</label><select class="form-select" id="ev-auto"><option value="yes">Yes — award automatically</option><option value="no">No — manual only</option></select></div>
-    </div>
+    <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="ev-tp"><option value="meeting">Meeting</option><option value="service">Service</option><option value="event">Event</option></select></div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ev-desc" placeholder="Details, location, etc."></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-event')">Cancel</button>
@@ -559,6 +564,49 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-cat')">Cancel</button>
       <button class="btn btn-navy" onclick="saveCat()">Add Category</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-profile">
+  <div class="modal" style="max-width:620px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div class="member-avatar" id="profile-avatar" style="width:48px;height:48px;font-size:16px;font-weight:600;flex-shrink:0"></div>
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;color:var(--navy)" id="profile-name">—</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px" id="profile-meta">—</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:500;color:var(--gold);line-height:1" id="profile-total">0</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">total points</div>
+      </div>
+    </div>
+
+    <!-- Points breakdown bar -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:18px" id="profile-stat-grid"></div>
+
+    <!-- Progress bar -->
+    <div style="margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:5px">
+        <span>Semester Progress</span>
+        <span id="profile-pct">0%</span>
+      </div>
+      <div style="background:var(--border);border-radius:100px;height:7px;overflow:hidden">
+        <div id="profile-bar" style="height:100%;background:var(--gold);border-radius:100px;transition:width .5s ease"></div>
+      </div>
+    </div>
+
+    <!-- Full history -->
+    <div style="font-weight:500;font-size:13px;color:var(--text);margin-bottom:10px">Full Activity History</div>
+    <div class="table-wrap" style="max-height:280px;overflow-y:auto">
+      <table>
+        <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Points</th><th>Status</th></tr></thead>
+        <tbody id="profile-hist-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-profile')">Close</button>
     </div>
   </div>
 </div>
@@ -741,34 +789,20 @@ async function initApp() {
   showPage(navItems[0].id);
 }
 
-function showPage(id) {
+async function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + id)?.classList.add('active');
   document.querySelectorAll(`.nav-tab[data-p="${id}"]`).forEach(t => t.classList.add('active'));
   const fns = { mypoints:renderMyPts, dashboard:renderDash, members:renderMembers, calendar:renderCal, award:buildAwardSelects, settings:renderSettings };
-  fns[id]?.();
+  if (fns[id]) await fns[id]();
 }
 
 // ══════════════════════════════════════════════════════
-//  AUTO-AWARD (RSVP → points on event date)
+//  ATTENDANCE AWARD — manual confirmation only
 // ══════════════════════════════════════════════════════
 async function checkAutoAward() {
-  const t = today();
-  const { data: evs } = await db.from('events').select('*, rsvps(member_id)').eq('auto_award', true).lte('date', t).gt('points', 0);
-  if (!evs) return;
-  for (const ev of evs) {
-    for (const rsvp of (ev.rsvps || [])) {
-      const mid = rsvp.member_id;
-      const alreadyDone = await db.from('history').select('id').eq('member_id', mid).eq('event_id', ev.id).single();
-      if (alreadyDone.data) continue;
-      await db.from('members').update({ pts_event: db.rpc ? undefined : null }).eq('id', mid);
-      // Increment event pts
-      const { data: mem } = await db.from('members').select('pts_event').eq('id', mid).single();
-      if (mem) await db.from('members').update({ pts_event: (mem.pts_event||0) + ev.points }).eq('id', mid);
-      await db.from('history').insert({ member_id: mid, event_id: ev.id, cat_key: 'event', cat_label: 'Event Participation', description: `Auto-award: ${ev.name}`, points: ev.points, date: ev.date });
-    }
-  }
+  // Auto-awarding removed — attendance is confirmed manually by admin/EC
 }
 
 // ══════════════════════════════════════════════════════
@@ -883,7 +917,72 @@ async function renderDash() {
     if (pendCount > 0) t.insertAdjacentHTML('beforeend', `<span class="tab-badge">${pendCount}</span>`);
   });
 
-  // Pending table
+  // ── Attendance Confirmation ──
+  // Past events that have RSVPs and points, where attendance hasn't been fully confirmed yet
+  const { data: pastEvs } = await db.from('events')
+    .select('*, rsvps(member_id, members(name,role))')
+    .lt('date', today())
+    .gt('points', 0)
+    .order('date', { ascending: false })
+    .limit(10);
+
+  // For each past event, find which RSVPed members have NOT yet received points for it
+  const attendSection = document.getElementById('attend-section');
+  const evsPendingConfirm = [];
+
+  for (const ev of (pastEvs||[])) {
+    const rsvpList = ev.rsvps||[];
+    if (!rsvpList.length) continue;
+    // Check who already got points for this event
+    const { data: alreadyAwarded } = await db.from('history').select('member_id').eq('event_id', ev.id);
+    const awardedSet = new Set((alreadyAwarded||[]).map(h => h.member_id));
+    const needsConfirm = rsvpList.filter(r => !awardedSet.has(r.member_id));
+    if (needsConfirm.length > 0) {
+      evsPendingConfirm.push({ ev, needsConfirm });
+    }
+  }
+
+  const attendBadge = document.getElementById('attend-badge');
+  if (attendBadge) {
+    attendBadge.style.display = evsPendingConfirm.length ? '' : 'none';
+    attendBadge.textContent = evsPendingConfirm.length;
+  }
+
+  if (!evsPendingConfirm.length) {
+    attendSection.innerHTML = '<div class="empty-state">No past events pending attendance confirmation.</div>';
+  } else {
+    attendSection.innerHTML = evsPendingConfirm.map(({ ev, needsConfirm }) => `
+      <div style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div>
+            <span style="font-weight:500;color:var(--text)">${ev.name}</span>
+            <span style="color:var(--text-muted);font-size:12px;margin-left:8px">${fmtDate(ev.date)}</span>
+            <span class="points-chip" style="margin-left:8px">+${ev.points} pts each</span>
+          </div>
+          <button class="btn btn-success btn-sm" onclick="approveAllAttendance('${ev.id}','${ev.name.replace(/'/g,"\\'")}',${ev.points},'${ev.date}',${JSON.stringify(needsConfirm.map(r=>r.member_id))})">
+            ✓ Approve All
+          </button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${needsConfirm.map(r => `
+            <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;background:white;transition:all .12s" 
+                   onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--border)'">
+              <input type="checkbox" checked data-ev="${ev.id}" data-mem="${r.member_id}" style="width:14px;height:14px;accent-color:var(--navy)">
+              <div class="member-avatar" style="width:22px;height:22px;font-size:9px;${r.members?.role==='ec'?'background:var(--violet)':''}">${ini(r.members?.name||'?')}</div>
+              <span style="font-size:13px;color:var(--text)">${r.members?.name||'Unknown'}</span>
+            </label>
+          `).join('')}
+        </div>
+        <div style="margin-top:10px">
+          <button class="btn btn-navy btn-sm" onclick="approveCheckedAttendance('${ev.id}','${ev.name.replace(/'/g,"\\'")}',${ev.points},'${ev.date}')">
+            ✓ Award Points to Checked Members
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Pending submissions table
   document.getElementById('pend-tbody').innerHTML = pendCount ? (pend||[]).map(s => {
     const mem = s.members;
     const catLabel = {service:'Service Hours',event:'Event Participation',attendance:'Attendance'}[s.type]||s.type;
@@ -910,6 +1009,40 @@ async function renderDash() {
     <td><span class="points-chip" style="font-size:13px">${totalPts(m)}</span></td>
     <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${m.custom_sum||0}</td>
   </tr>`).join('');
+}
+
+// Award points to all RSVPed members for an event
+async function approveAllAttendance(evId, evName, pts, date, memberIds) {
+  if (!confirm(`Award ${pts} pts to all ${memberIds.length} RSVPed members for "${evName}"?`)) return;
+  for (const mid of memberIds) {
+    await awardEventPts(mid, evId, evName, pts, date);
+  }
+  toast(`✓ ${pts} pts awarded to ${memberIds.length} members!`);
+  renderDash();
+}
+
+// Award points only to checked members
+async function approveCheckedAttendance(evId, evName, pts, date) {
+  const checked = [...document.querySelectorAll(`input[data-ev="${evId}"]:checked`)].map(el => el.dataset.mem);
+  if (!checked.length) { toast('No members checked.', 'error'); return; }
+  if (!confirm(`Award ${pts} pts to ${checked.length} member(s) for "${evName}"?`)) return;
+  for (const mid of checked) {
+    await awardEventPts(mid, evId, evName, pts, date);
+  }
+  toast(`✓ ${pts} pts awarded to ${checked.length} member(s)!`);
+  renderDash();
+}
+
+// Helper: award event points to one member
+async function awardEventPts(memberId, evId, evName, pts, date) {
+  const { data: mem } = await db.from('members').select('pts_event').eq('id', memberId).single();
+  if (!mem) return;
+  await db.from('members').update({ pts_event: (mem.pts_event||0) + pts }).eq('id', memberId);
+  await db.from('history').insert({
+    member_id: memberId, event_id: evId,
+    cat_key: 'event', cat_label: 'Event Participation',
+    description: `Attended: ${evName}`, points: pts, date
+  });
 }
 
 async function reviewSub(id, memberId, type, hours, desc, org, date) {
@@ -952,16 +1085,17 @@ async function renderMembers() {
     const isSelf    = m.id === cu.id;
     const canRemove = cu.role==='admin' && !isSelf;
     const avatarBg  = m.role==='admin' ? 'background:var(--navy)' : m.role==='ec' ? 'background:var(--violet)' : '';
-    return `<tr>
+    return `<tr style="cursor:pointer" onclick="viewMember('${m.id}')">
       <td><div class="member-name-cell">
         <div class="member-avatar" style="${avatarBg}">${ini(m.name)}</div>
-        ${m.name}${isSelf?' <span style="font-size:10px;color:var(--text-faint)">(you)</span>':''}
+        <span style="color:var(--navy);font-weight:500;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--border-strong)">${m.name}</span>
+        ${isSelf?' <span style="font-size:10px;color:var(--text-faint)">(you)</span>':''}
       </div></td>
       <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text-muted)">${m.username}</td>
       <td><span style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:20px;background:${rs.bg};color:${rs.color}">${rs.label}</span></td>
       <td><span class="points-chip">${tot}</span></td>
       <td>${m.pts_service||0}</td><td>${m.pts_attend||0}</td><td>${m.pts_event||0}</td><td>${csum}</td>
-      <td>${canRemove ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : '—'}</td>
+      <td onclick="event.stopPropagation()">${canRemove ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -987,6 +1121,72 @@ async function saveMember() {
   const roleLabel = { admin:'Admin/Advisor', ec:'EC Member', member:'Member' }[r]||r;
   toast(`✓ ${f} ${l} added as ${roleLabel}.`);
   renderMembers();
+}
+
+async function viewMember(id) {
+  // Load member + their custom points + history + pending submissions
+  const { data: m }        = await db.from('members').select('*').eq('id', id).single();
+  const { data: custPts }  = await db.from('custom_points').select('points, custom_categories(name,color)').eq('member_id', id);
+  const { data: hist }     = await db.from('history').select('*').eq('member_id', id).order('date', { ascending: false });
+  const { data: subs }     = await db.from('submissions').select('*').eq('member_id', id).neq('status','approved').order('submitted_at', { ascending: false });
+
+  if (!m) return;
+
+  const custSum = (custPts||[]).reduce((a,r) => a + (r.points||0), 0);
+  const total   = (m.pts_service||0) + (m.pts_attend||0) + (m.pts_event||0) + custSum;
+  const goal    = parseInt(settings.point_goal)||100;
+  const pct     = Math.min(100, Math.round(total / goal * 100));
+
+  const avatarBg = m.role==='admin' ? 'var(--navy)' : m.role==='ec' ? 'var(--violet)' : 'var(--navy)';
+  const roleLabel = { admin:'Admin / Advisor', ec:'Executive Committee', member:'Member' }[m.role]||m.role;
+
+  document.getElementById('profile-avatar').textContent = ini(m.name);
+  document.getElementById('profile-avatar').style.background = avatarBg;
+  document.getElementById('profile-name').textContent = m.name;
+  document.getElementById('profile-meta').textContent = `@${m.username} · ${roleLabel}`;
+  document.getElementById('profile-total').textContent = total;
+  document.getElementById('profile-pct').textContent = `${pct}% of ${goal} pt goal`;
+  document.getElementById('profile-bar').style.width = pct + '%';
+
+  // Stat cards
+  const statItems = [
+    { label:'Service',    val: m.pts_service||0 },
+    { label:'Attendance', val: m.pts_attend||0  },
+    { label:'Events',     val: m.pts_event||0   },
+    ...(custPts||[]).filter(r=>r.points>0).map(r => ({ label: r.custom_categories?.name||'Custom', val: r.points })),
+  ];
+  document.getElementById('profile-stat-grid').innerHTML = statItems.map(s => `
+    <div style="background:var(--ground);border-radius:var(--radius-sm);padding:12px 14px;border:1px solid var(--border)">
+      <div style="font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px">${s.label}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--navy)">${s.val}</div>
+    </div>`).join('');
+
+  // History rows — combine approved history + pending/rejected submissions
+  const histRows = (hist||[]).map(h => ({
+    date: h.date, catKey: h.cat_key, catLabel: h.cat_label,
+    desc: h.description, pts: h.points, status: 'approved'
+  }));
+  const subRows = (subs||[]).map(s => ({
+    date: s.date,
+    catKey: s.type,
+    catLabel: { service:'Service Hours', event:'Event Participation', attendance:'Attendance' }[s.type]||s.type,
+    desc: `${s.description} @ ${s.org}`,
+    pts: s.hours,
+    status: s.status
+  }));
+  const rows = [...histRows, ...subRows].sort((a,b) => b.date.localeCompare(a.date));
+
+  document.getElementById('profile-hist-tbody').innerHTML = rows.length
+    ? rows.map(r => `<tr>
+        <td style="color:var(--text-muted);white-space:nowrap">${fmtDate(r.date)}</td>
+        <td>${catBadge(r.catKey, r.catLabel)}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.desc}</td>
+        <td><span class="points-chip">${r.status==='pending' ? r.pts+' req.' : r.status==='rejected' ? '—' : '+'+r.pts}</span></td>
+        <td><span class="badge badge-${r.status}">${r.status.charAt(0).toUpperCase()+r.status.slice(1)}</span></td>
+      </tr>`).join('')
+    : '<tr><td colspan="5" class="empty-state">No activity yet.</td></tr>';
+
+  openModal('modal-profile');
 }
 
 // ══════════════════════════════════════════════════════
@@ -1082,15 +1282,18 @@ async function renderCal() {
   const teamsTxt = document.getElementById('teams-status-txt');
   const teamsBtn = document.getElementById('teams-open-btn');
 
-  if (teamsUrl) teamsUrl.value = link;
-  if (link) {
-    if (teamsDot) teamsDot.className = 'status-dot on';
-    if (teamsTxt) teamsTxt.innerHTML = `<span class="status-dot on"></span>Connected`;
-    if (teamsBtn) teamsBtn.style.display = '';
-  } else {
-    if (teamsDot) teamsDot.className = 'status-dot off';
-    if (teamsTxt) teamsTxt.innerHTML = `<span class="status-dot off"></span>Not connected`;
-    if (teamsBtn) teamsBtn.style.display = 'none';
+  // Only update Teams UI elements if the calendar page is currently visible
+  if (teamsUrl && teamsDot && teamsTxt && teamsBtn) {
+    teamsUrl.value = link;
+    if (link) {
+      teamsDot.className = 'status-dot on';
+      teamsTxt.innerHTML = `<span class="status-dot on"></span>Connected`;
+      teamsBtn.style.display = '';
+    } else {
+      teamsDot.className = 'status-dot off';
+      teamsTxt.innerHTML = `<span class="status-dot off"></span>Not connected`;
+      teamsBtn.style.display = 'none';
+    }
   }
 
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -1121,7 +1324,7 @@ async function renderCal() {
   const upcoming = (evs||[]).filter(e=>e.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
   document.getElementById('ev-tbody').innerHTML = upcoming.length ? upcoming.map(ev => {
     const going = myRsvpSet.has(ev.id);
-    const autoTag = ev.auto_award&&ev.points ? '<span style="font-size:10px;color:var(--green);font-weight:600;margin-left:4px">⚡ auto</span>' : '';
+    const autoTag = '';
     const deleteBtn = cu.role==='admin' ? `<button class="btn btn-danger btn-sm" onclick="deleteEvent('${ev.id}','${ev.name.replace(/'/g,"\\'")}')">Delete</button>` : '';
     return `<tr>
       <td style="white-space:nowrap;color:var(--text-muted)">${fmtDate(ev.date)}</td>
@@ -1163,9 +1366,8 @@ async function saveEvent() {
   const pts  = parseInt(document.getElementById('ev-pts').value)||0;
   const type = document.getElementById('ev-tp').value;
   const desc = document.getElementById('ev-desc').value.trim();
-  const auto = document.getElementById('ev-auto').value === 'yes';
   if (!name||!date) { toast('Name and date are required.', 'error'); return; }
-  await db.from('events').insert({ name, date, type, points: pts, description: desc, auto_award: auto });
+  await db.from('events').insert({ name, date, type, points: pts, description: desc });
   closeModal('modal-event');
   ['ev-nm','ev-desc'].forEach(id => document.getElementById(id).value='');
   toast(`✓ "${name}" added to calendar.`);
