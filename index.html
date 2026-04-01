@@ -1276,8 +1276,8 @@ async function renderMembers() {
     const rs     = roleStyle[m.role]||roleStyle.member;
     const isSelf    = m.id===cu.id, canRemove=cu.role==='admin'&&!isSelf;
     const avatarBg  = m.role==='admin'?'background:var(--navy)':m.role==='ec'?'background:var(--violet)':'';
-    const {inGoodStanding} = m.role==='member'?calcGoodStanding(mForGs,mCust):{inGoodStanding:null};
-    const standingCell = m.role==='member'?goodStandingBadge(inGoodStanding):'<span style="color:var(--text-faint)">—</span>';
+    const {inGoodStanding} = m.role==='admin'?calcGoodStanding(mForGs,mCust):{inGoodStanding:null};
+    const standingCell = m.role==='admin'?goodStandingBadge(inGoodStanding):'<span style="color:var(--text-faint)">—</span>';
     return `<tr style="cursor:pointer" onclick="viewMember('${m.id}')">
       <td><div class="member-name-cell">
         <div class="member-avatar" style="${avatarBg}">${ini(m.name)}</div>
@@ -1290,8 +1290,7 @@ async function renderMembers() {
       <td>${sp.pts_service||0}</td><td>${sp.pts_attend||0}</td><td>${sp.pts_event||0}</td><td>${csum}</td>
       <td>${standingCell}</td>
       <td onclick="event.stopPropagation()">
-        ${m.role==='member' ? `<button class="btn btn-sm ${sp.is_graduating?'btn-gold':'btn-outline'}" onclick="toggleGraduating('${m.id}','${sid}',${!!sp.is_graduating})">${sp.is_graduating?'🎓 Yes':'No'}</button>` : '—'}
-      </td>
+      ${m.role!=='admin' ? `<button class="btn btn-sm ${sp.is_graduating?'btn-gold':'btn-outline'}" onclick="toggleGraduating('${m.id}','${sid}',${!!sp.is_graduating})">${sp.is_graduating?'🎓 Yes':'No'}</button>` : '—'}      </td>
       <td onclick="event.stopPropagation()">${canRemove ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : '—'}</td>
     </tr>`;
   }).join('');
