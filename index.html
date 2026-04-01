@@ -442,7 +442,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       <div class="card">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Total</th><th>Service</th><th>Attend.</th><th>Events</th><th>Custom</th><th>Standing</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Total</th><th>Service</th><th>Attend.</th><th>Events</th><th>Custom</th><th>Standing</th><th>Graduating</th><th></th></tr></thead>
             <tbody id="mem-tbody"></tbody>
           </table>
         </div>
@@ -596,6 +596,7 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
     <div class="form-group"><label class="form-label">Username</label><input type="text" class="form-input" id="nm-u" placeholder="e.g. jsmith"/></div>
     <div class="form-group"><label class="form-label">Password</label><input type="password" class="form-input" id="nm-p" placeholder="Initial password"/></div>
     <div class="form-group"><label class="form-label">Role</label><select class="form-select" id="nm-r"><option value="member">Member</option><option value="ec">Executive Committee</option><option value="admin">Admin / Advisor</option></select></div>
+    <div class="form-group"><label class="form-label">Graduating This Semester?</label><select class="form-select" id="nm-grad"><option value="no">No</option><option value="yes">Yes</option></select></div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-member')">Cancel</button>
       <button class="btn btn-navy" onclick="saveMember()">Add Member</button>
@@ -1288,11 +1289,26 @@ async function renderMembers() {
       <td><span class="points-chip">${tot}</span></td>
       <td>${sp.pts_service||0}</td><td>${sp.pts_attend||0}</td><td>${sp.pts_event||0}</td><td>${csum}</td>
       <td>${standingCell}</td>
-      <td onclick="event.stopPropagation()">${canRemove?`<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>`:'—'}</td>
+      <td onclick="event.stopPropagation()">
+        ${m.role==='member' ? `<button class="btn btn-sm ${sp.is_graduating?'btn-gold':'btn-outline'}" onclick="toggleGraduating('${m.id}','${sid}',${!!sp.is_graduating})">${sp.is_graduating?'🎓 Yes':'No'}</button>` : '—'}
+      </td>
+      <td onclick="event.stopPropagation()">${canRemove ? `<button class="btn btn-danger btn-sm" onclick="removeMember('${m.id}')">Remove</button>` : '—'}</td>
     </tr>`;
   }).join('');
 }
 
+async function toggleGraduating(memberId, semesterId, currentVal) {
+  const semPts = await getSemesterPts(memberId, semesterId);
+  await db.from('semester_points').upsert(
+    { member_id: memberId, semester_id: semesterId,
+      pts_service: semPts.pts_service||0, pts_attend: semPts.pts_attend||0,
+      pts_event: semPts.pts_event||0, is_graduating: !currentVal },
+    { onConflict: 'member_id,semester_id' }
+  );
+  toast(!currentVal ? '🎓 Marked as graduating.' : 'Graduation mark removed.');
+  renderMembers();
+}
+  
 async function removeMember(id) {
   if (!confirm('Remove this member? Their history will be kept.')) return;
   await db.from('members').delete().eq('id', id);
@@ -1352,7 +1368,8 @@ async function loadProfileSemester(memberId, semesterId) {
   document.getElementById('profile-avatar').textContent  = ini(m.name);
   document.getElementById('profile-avatar').style.background = avatarBg;
   document.getElementById('profile-name').textContent    = m.name;
-  document.getElementById('profile-meta').textContent    = `@${m.username} · ${roleLabel}${sem?' · '+sem.name:''}`;
+  const gradFlag = semPts.is_graduating ? ' 🎓 Graduating' : '';
+  document.getElementById('profile-meta').textContent    = `@${m.username} · ${roleLabel}${sem?' · '+sem.name:''}${gradFlag}`;
   document.getElementById('profile-total').textContent   = total;
   document.getElementById('profile-pct').textContent     = `${pct}% of ${goal} pt goal`;
   document.getElementById('profile-bar').style.width     = pct+'%';
