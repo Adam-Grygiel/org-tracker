@@ -396,6 +396,15 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
       </div>
     </div>
 
+<!-- MEETINGS -->
+    <div class="page" id="page-meetings">
+      <div class="section-header">
+        <div class="section-title">Meetings</div>
+        <button class="btn btn-navy btn-sm" id="new-meeting-btn" style="display:none" onclick="openNewMeetingModal()">+ New Meeting</button>
+      </div>
+      <div id="meetings-list"></div>
+    </div>
+    
     <!-- DASHBOARD (EC / Admin) -->
     <div class="page" id="page-dashboard">
       <div class="section-header">
@@ -501,6 +510,16 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
           </div>
         </div>
         <button class="btn btn-outline btn-sm" onclick="saveGoal()">Save Goal</button>
+        </div>
+      <div class="card" style="max-width:520px">
+        <div class="card-title">Quiz Points for Missed Meetings</div>
+        <div class="form-row" style="margin-bottom:12px">
+          <div class="form-group">
+            <label class="form-label">Points awarded for passing quiz</label>
+            <input type="number" class="form-input" id="set-quiz-pts" min="1" max="10" placeholder="1"/>
+          </div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="saveQuizPts()">Save</button>
       </div>
       <div class="card" style="max-width:520px">
         <div class="card-title">Good Standing Requirements</div>
@@ -566,19 +585,9 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
     </div>
     <div class="form-group"><label class="form-label">Type</label><select class="form-select" id="ev-tp"><option value="meeting">Meeting</option><option value="service">Service</option><option value="event">Event</option></select></div>
     <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="ev-desc" placeholder="Details, location, etc."></textarea></div>
+    <div class="form-group"><label class="form-label">Repeat</label><select class="form-select" id="ev-repeat" onchange="document.getElementById('ev-repeat-end-grp').style.display=this.value==='none'?'none':''"><option value="none">No repeat</option><option value="weekly">Weekly</option><option value="biweekly">Every 2 weeks</option><option value="monthly">Monthly</option></select></div>
     <div class="form-group" id="ev-repeat-end-grp" style="display:none"><label class="form-label">Repeat Until</label><input type="date" class="form-input" id="ev-repeat-end"/></div>
-    <div class="form-group"><label class="form-label">Repeat</label>
-  <select class="form-select" id="ev-repeat">
-    <option value="none">No repeat</option>
-    <option value="weekly">Weekly</option>
-    <option value="biweekly">Every 2 weeks</option>
-    <option value="monthly">Monthly</option>
-  </select>
-</div>
-<div class="form-group" id="ev-repeat-end-grp" style="display:none">
-  <label class="form-label">Repeat Until</label>
-  <input type="date" class="form-input" id="ev-repeat-end"/>
-</div>
+    
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-event')">Cancel</button>
       <button class="btn btn-navy" onclick="saveEvent()">Add Event</button>
@@ -621,6 +630,61 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
   </div>
 </div>
 
+  <div class="modal-overlay" id="modal-quiz">
+  <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto">
+    <div class="modal-title" id="quiz-modal-title">Meeting Quiz</div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px" id="quiz-pts-note"></div>
+    <div id="quiz-questions-display"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-quiz')">Cancel</button>
+      <button class="btn btn-navy" onclick="submitQuiz()">Submit Quiz →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-meeting">
+  <div class="modal" style="max-width:680px;max-height:90vh;overflow-y:auto">
+    <div class="modal-title" id="meeting-modal-title">New Meeting</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Meeting Title</label><input type="text" class="form-input" id="mtg-title" placeholder="e.g. April General Meeting"/></div>
+      <div class="form-group"><label class="form-label">Date</label><input type="date" class="form-input" id="mtg-date"/></div>
+    </div>
+    <div style="font-weight:600;font-size:13px;color:var(--navy);margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">📋 Agenda / Minutes</div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;gap:6px"><span style="background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:20px">1</span> Call to Order</label>
+      <input type="text" class="form-input" id="mtg-s1" placeholder="e.g. Meeting called to order at 6:00 PM by President Smith"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;gap:6px"><span style="background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:20px">2</span> Old Business</label>
+      <textarea class="form-textarea" id="mtg-s2" placeholder="Recap of items from last meeting, follow-ups, updates..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;gap:6px"><span style="background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:20px">3</span> New Business</label>
+      <textarea class="form-textarea" id="mtg-s3" placeholder="New topics, announcements, upcoming events, votes..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;gap:6px"><span style="background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:20px">4</span> Advisor Comments</label>
+      <textarea class="form-textarea" id="mtg-s4" placeholder="Notes from faculty advisor..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;gap:6px"><span style="background:var(--navy);color:white;font-size:10px;padding:2px 7px;border-radius:20px">5</span> Adjournment</label>
+      <input type="text" class="form-input" id="mtg-s5" placeholder="e.g. Meeting adjourned at 7:15 PM"/>
+    </div>
+    <div id="mtg-custom-sections"></div>
+    <button type="button" class="btn btn-outline btn-sm" style="margin-bottom:16px" onclick="addCustomSection()">+ Add Custom Section</button>
+    <div id="mtg-quiz-section" style="display:none">
+      <div style="font-weight:600;font-size:13px;color:var(--navy);margin:16px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)">🎯 Quiz Questions</div>
+      <div id="quiz-questions-list"></div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addQuizQuestion()">+ Add Question</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-meeting')">Cancel</button>
+      <button class="btn btn-outline btn-sm" id="mtg-draft-btn" onclick="saveMeeting('draft')">Save Draft</button>
+      <button class="btn btn-navy" id="mtg-post-btn" onclick="saveMeeting('published')">Post Minutes →</button>
+    </div>
+  </div>
+</div>
+  
 <div class="modal-overlay" id="modal-semester">
   <div class="modal">
     <div class="modal-title">New Semester</div>
@@ -792,6 +856,7 @@ async function loadSettings() {
   if (!settings.gs_meetings) settings.gs_meetings = '3';
   if (!settings.gs_service)  settings.gs_service  = '3';
   if (!settings.gs_misc)     settings.gs_misc     = '4';
+  if (!settings.quiz_points) settings.quiz_points = '1';
 }
 async function loadCustomCats() {
   const { data } = await db.from('custom_categories').select('*').order('created_at');
@@ -912,9 +977,12 @@ async function initApp() {
   chip.className = 'role-badge ' + cu.role;
 
   const navItems = [];
-  if (!canMgr) { navItems.push({id:'mypoints',label:'My Points'}); navItems.push({id:'submit',label:'Submit Points'}); }
+  //if (!canMgr) { navItems.push({id:'mypoints',label:'My Points'}); navItems.push({id:'submit',label:'Submit Points'}); }
+  if (!canMgr) { navItems.push({id:'mypoints',label:'My Points'}); navItems.push({id:'submit',label:'Submit Points'}); navItems.push({id:'meetings',label:'Meetings'}); }
   if (canMgr)  navItems.push({id:'dashboard',label:'Dashboard'});
+  //navItems.push({id:'calendar',label:'Calendar'});
   navItems.push({id:'calendar',label:'Calendar'});
+  navItems.push({id:'meetings',label:'Meetings'});
   if (canMgr)  { navItems.push({id:'members',label:'Members'}); navItems.push({id:'award',label:'Award Points'}); }
   if (isAdmin) navItems.push({id:'settings',label:'Settings'});
 
@@ -923,6 +991,8 @@ async function initApp() {
   ).join('');
 
   document.getElementById('cal-add-btn').style.display = canMgr ? '' : 'none';
+  const newMtgBtn = document.getElementById('new-meeting-btn');
+  if (newMtgBtn) newMtgBtn.style.display = canMgr ? '' : 'none';
   document.getElementById('sub-date').value = today();
 
   showPage(navItems[0].id);
@@ -933,7 +1003,8 @@ async function showPage(id) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + id)?.classList.add('active');
   document.querySelectorAll(`.nav-tab[data-p="${id}"]`).forEach(t => t.classList.add('active'));
-  const fns = { mypoints:renderMyPts, dashboard:renderDash, members:renderMembers, calendar:renderCal, award:buildAwardSelects, settings:renderSettings };
+  //const fns = { mypoints:renderMyPts, dashboard:renderDash, members:renderMembers, calendar:renderCal, award:buildAwardSelects, settings:renderSettings };
+  const fns = { mypoints:renderMyPts, dashboard:renderDash, members:renderMembers, calendar:renderCal, award:buildAwardSelects, settings:renderSettings, meetings:renderMeetings };
   if (fns[id]) await fns[id]();
 }
 
@@ -1243,6 +1314,327 @@ async function reviewSub(id, memberId, type, hours, desc, org, date, semId) {
   renderDash();
 }
 
+  // ══════════════════════════════════════════════════════
+//  MEETINGS
+// ══════════════════════════════════════════════════════
+let _editingMeetingId = null;
+let _customSectionCount = 0;
+let _questionCount = 0;
+
+async function renderMeetings() {
+  const sid = activeSemester?.id;
+  const isManager = cu.role === 'admin' || cu.role === 'ec';
+  let query = db.from('meetings').select('*, quiz_attempts(member_id,passed)');
+  if (sid) query = query.eq('semester_id', sid);
+  const { data: meetings } = await query.order('date', { ascending: false });
+  const list = document.getElementById('meetings-list');
+  if (!meetings?.length) {
+    list.innerHTML = `<div class="card"><div class="empty-state">No meetings yet${isManager ? ' — click + New Meeting to create one.' : '.'}</div></div>`;
+    return;
+  }
+  list.innerHTML = meetings.map(mtg => {
+    const myAttempt = (mtg.quiz_attempts||[]).find(a => a.member_id === cu.id);
+    const attendedCount = (mtg.quiz_attempts||[]).filter(a => a.passed).length;
+    const status = mtg.minutes_posted
+      ? '<span class="badge badge-approved">Minutes Posted</span>'
+      : '<span class="badge badge-pending">Draft</span>';
+    const quizBadge = !isManager && mtg.minutes_posted && !myAttempt
+      ? '<span class="badge" style="background:var(--gold-pale);color:#92400e;border:1px solid var(--gold-light);margin-left:6px">📝 Quiz Available</span>' : '';
+    const memberActions = !isManager && mtg.minutes_posted
+      ? myAttempt
+        ? `<span class="badge ${myAttempt.passed?'badge-approved':'badge-rejected'}" style="margin-top:8px;display:inline-block">${myAttempt.passed?'✓ Quiz Passed':'✗ Quiz Failed'}</span>`
+        : `<button class="btn btn-gold btn-sm" style="margin-top:8px" onclick="openQuiz('${mtg.id}')">📝 Take Quiz — Earn ${mtg.quiz_points||1} pt</button>`
+      : '';
+    const managerActions = isManager ? `
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="editMeeting('${mtg.id}')">✏️ Edit</button>
+        ${!mtg.minutes_posted ? `<button class="btn btn-navy btn-sm" onclick="postMinutes('${mtg.id}')">Post Minutes →</button>` : ''}
+        <button class="btn btn-danger btn-sm" onclick="deleteMeeting('${mtg.id}')">Delete</button>
+      </div>` : '';
+    const sections = mtg.sections ? JSON.parse(mtg.sections) : {};
+    return `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:17px;color:var(--navy)">${mtg.title} ${quizBadge}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px">${fmtDate(mtg.date)}${isManager?' · '+attendedCount+' passed quiz':''}</div>
+        </div>
+        ${status}
+      </div>
+      ${mtg.minutes_posted && sections ? `
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+          ${buildSectionView('Call to Order',    sections.s1)}
+          ${buildSectionView('Old Business',     sections.s2)}
+          ${buildSectionView('New Business',     sections.s3)}
+          ${buildSectionView('Advisor Comments', sections.s4)}
+          ${buildSectionView('Adjournment',      sections.s5)}
+          ${(sections.custom||[]).map(c => buildSectionView(c.label, c.content)).join('')}
+        </div>` : !mtg.minutes_posted && isManager ? `
+        <div style="margin-top:10px;font-size:12px;color:var(--text-muted);font-style:italic">Draft saved — post minutes to make visible to members.</div>` : ''}
+      ${memberActions}
+      ${managerActions}
+    </div>`;
+  }).join('');
+}
+
+function buildSectionView(label, content) {
+  if (!content?.trim()) return '';
+  return `<div style="padding:10px 14px;background:var(--ground);border-radius:var(--radius-sm);border-left:3px solid var(--navy)">
+    <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);margin-bottom:4px">${label}</div>
+    <div style="font-size:13px;color:var(--text);white-space:pre-wrap">${content}</div>
+  </div>`;
+}
+
+function openNewMeetingModal() {
+  _editingMeetingId = null;
+  _customSectionCount = 0;
+  _questionCount = 0;
+  document.getElementById('meeting-modal-title').textContent = 'New Meeting';
+  document.getElementById('mtg-title').value = '';
+  document.getElementById('mtg-date').value  = today();
+  ['mtg-s1','mtg-s2','mtg-s3','mtg-s4','mtg-s5'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('mtg-custom-sections').innerHTML = '';
+  document.getElementById('mtg-quiz-section').style.display = 'none';
+  document.getElementById('mtg-post-btn').textContent = 'Post Minutes →';
+  document.getElementById('mtg-draft-btn').style.display = '';
+  document.getElementById('quiz-questions-list').innerHTML = '';
+  openModal('modal-meeting');
+}
+
+async function editMeeting(id) {
+  _editingMeetingId = id;
+  _customSectionCount = 0;
+  _questionCount = 0;
+  const { data: mtg } = await db.from('meetings').select('*').eq('id', id).single();
+  if (!mtg) return;
+  const sections = mtg.sections ? JSON.parse(mtg.sections) : {};
+  document.getElementById('meeting-modal-title').textContent = 'Edit Meeting';
+  document.getElementById('mtg-title').value = mtg.title;
+  document.getElementById('mtg-date').value  = mtg.date;
+  document.getElementById('mtg-s1').value = sections.s1||'';
+  document.getElementById('mtg-s2').value = sections.s2||'';
+  document.getElementById('mtg-s3').value = sections.s3||'';
+  document.getElementById('mtg-s4').value = sections.s4||'';
+  document.getElementById('mtg-s5').value = sections.s5||'';
+  const customEl = document.getElementById('mtg-custom-sections');
+  customEl.innerHTML = '';
+  (sections.custom||[]).forEach(c => {
+    _customSectionCount++;
+    const n = _customSectionCount;
+    customEl.insertAdjacentHTML('beforeend', `
+      <div class="form-group" id="mtg-custom-${n}">
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          <input type="text" style="border:none;background:none;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);outline:none;width:200px" value="${c.label}" id="mtg-custom-label-${n}"/>
+          <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('mtg-custom-${n}').remove()">✕</button>
+        </label>
+        <textarea class="form-textarea" id="mtg-custom-content-${n}" placeholder="Notes...">${c.content||''}</textarea>
+      </div>`);
+  });
+  if (mtg.minutes_posted) {
+    document.getElementById('mtg-quiz-section').style.display = '';
+    await loadQuizQuestions(id);
+    document.getElementById('mtg-post-btn').textContent = 'Update Minutes';
+    document.getElementById('mtg-draft-btn').style.display = 'none';
+  } else {
+    document.getElementById('mtg-quiz-section').style.display = 'none';
+    document.getElementById('mtg-post-btn').textContent = 'Post Minutes →';
+    document.getElementById('mtg-draft-btn').style.display = '';
+  }
+  openModal('modal-meeting');
+}
+
+async function postMinutes(id) {
+  _editingMeetingId = id;
+  _questionCount = 0;
+  const { data: mtg } = await db.from('meetings').select('*').eq('id', id).single();
+  if (!mtg) return;
+  const sections = mtg.sections ? JSON.parse(mtg.sections) : {};
+  document.getElementById('meeting-modal-title').textContent = 'Post Minutes';
+  document.getElementById('mtg-title').value = mtg.title;
+  document.getElementById('mtg-date').value  = mtg.date;
+  document.getElementById('mtg-s1').value = sections.s1||'';
+  document.getElementById('mtg-s2').value = sections.s2||'';
+  document.getElementById('mtg-s3').value = sections.s3||'';
+  document.getElementById('mtg-s4').value = sections.s4||'';
+  document.getElementById('mtg-s5').value = sections.s5||'';
+  document.getElementById('mtg-quiz-section').style.display = '';
+  document.getElementById('mtg-post-btn').textContent = 'Post Minutes →';
+  document.getElementById('mtg-draft-btn').style.display = 'none';
+  document.getElementById('quiz-questions-list').innerHTML = '';
+  await loadQuizQuestions(id);
+  openModal('modal-meeting');
+}
+
+async function loadQuizQuestions(meetingId) {
+  const { data: qs } = await db.from('meeting_questions').select('*').eq('meeting_id', meetingId).order('created_at');
+  document.getElementById('quiz-questions-list').innerHTML = '';
+  _questionCount = 0;
+  (qs||[]).forEach(q => addQuizQuestion(q));
+}
+
+function addQuizQuestion(existing) {
+  _questionCount++;
+  const n = _questionCount;
+  const q = existing || {};
+  document.getElementById('quiz-questions-list').insertAdjacentHTML('beforeend', `
+    <div class="card" style="padding:14px;margin-bottom:10px;background:var(--ground)" id="quiz-q-${n}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted)">Question ${n}</span>
+        <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('quiz-q-${n}').remove()">✕</button>
+      </div>
+      <input type="hidden" id="qq-id-${n}" value="${q.id||''}"/>
+      <div class="form-group"><input type="text" class="form-input" id="qq-q-${n}" placeholder="Question text" value="${q.question||''}"/></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">A</label><input type="text" class="form-input" id="qq-a-${n}" placeholder="Option A" value="${q.option_a||''}"/></div>
+        <div class="form-group"><label class="form-label">B</label><input type="text" class="form-input" id="qq-b-${n}" placeholder="Option B" value="${q.option_b||''}"/></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">C</label><input type="text" class="form-input" id="qq-c-${n}" placeholder="Option C" value="${q.option_c||''}"/></div>
+        <div class="form-group"><label class="form-label">D</label><input type="text" class="form-input" id="qq-d-${n}" placeholder="Option D" value="${q.option_d||''}"/></div>
+      </div>
+      <div class="form-group"><label class="form-label">Correct Answer</label>
+        <select class="form-select" id="qq-correct-${n}">
+          <option value="a" ${q.correct==='a'?'selected':''}>A</option>
+          <option value="b" ${q.correct==='b'?'selected':''}>B</option>
+          <option value="c" ${q.correct==='c'?'selected':''}>C</option>
+          <option value="d" ${q.correct==='d'?'selected':''}>D</option>
+        </select>
+      </div>
+    </div>`);
+}
+
+function addCustomSection() {
+  _customSectionCount++;
+  const n = _customSectionCount;
+  document.getElementById('mtg-custom-sections').insertAdjacentHTML('beforeend', `
+    <div class="form-group" id="mtg-custom-${n}">
+      <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+        <input type="text" style="border:none;background:none;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);outline:none;width:200px" placeholder="Section Name" id="mtg-custom-label-${n}"/>
+        <button type="button" class="btn btn-danger btn-sm" onclick="document.getElementById('mtg-custom-${n}').remove()">✕</button>
+      </label>
+      <textarea class="form-textarea" id="mtg-custom-content-${n}" placeholder="Notes..."></textarea>
+    </div>`);
+}
+
+async function saveMeeting(status) {
+  const title = document.getElementById('mtg-title').value.trim();
+  const date  = document.getElementById('mtg-date').value;
+  if (!title||!date) { toast('Title and date are required.', 'error'); return; }
+  const custom = [];
+  let ci = 1;
+  while (document.getElementById(`mtg-custom-${ci}`)) {
+    const label   = document.getElementById(`mtg-custom-label-${ci}`)?.value.trim();
+    const content = document.getElementById(`mtg-custom-content-${ci}`)?.value.trim();
+    if (label) custom.push({ label, content });
+    ci++;
+  }
+  const sections = JSON.stringify({
+    s1: document.getElementById('mtg-s1').value.trim(),
+    s2: document.getElementById('mtg-s2').value.trim(),
+    s3: document.getElementById('mtg-s3').value.trim(),
+    s4: document.getElementById('mtg-s4').value.trim(),
+    s5: document.getElementById('mtg-s5').value.trim(),
+    custom,
+  });
+  const isPosting = status === 'published';
+  const payload = {
+    title, date, sections,
+    semester_id: activeSemester?.id,
+    minutes_posted: isPosting,
+    quiz_points: parseInt(settings.quiz_points)||1,
+  };
+  let meetingId = _editingMeetingId;
+  if (meetingId) {
+    await db.from('meetings').update(payload).eq('id', meetingId);
+  } else {
+    const { data: newMtg } = await db.from('meetings').insert(payload).select().single();
+    meetingId = newMtg?.id;
+  }
+  if (isPosting && meetingId) {
+    let qi = 1;
+    while (document.getElementById(`quiz-q-${qi}`)) {
+      const qid      = document.getElementById(`qq-id-${qi}`)?.value;
+      const question = document.getElementById(`qq-q-${qi}`)?.value.trim();
+      const optA     = document.getElementById(`qq-a-${qi}`)?.value.trim();
+      const optB     = document.getElementById(`qq-b-${qi}`)?.value.trim();
+      const optC     = document.getElementById(`qq-c-${qi}`)?.value.trim();
+      const optD     = document.getElementById(`qq-d-${qi}`)?.value.trim();
+      const correct  = document.getElementById(`qq-correct-${qi}`)?.value;
+      if (question && optA && optB && optC && optD) {
+        const qData = { meeting_id: meetingId, question, option_a: optA, option_b: optB, option_c: optC, option_d: optD, correct };
+        if (qid) { await db.from('meeting_questions').update(qData).eq('id', qid); }
+        else      { await db.from('meeting_questions').insert(qData); }
+      }
+      qi++;
+    }
+  }
+  closeModal('modal-meeting');
+  _questionCount = 0;
+  toast(isPosting ? '✓ Minutes posted! Quiz is now available to members.' : '✓ Draft saved.');
+  renderMeetings();
+}
+
+async function deleteMeeting(id) {
+  if (!confirm('Delete this meeting? All quiz attempts will also be removed.')) return;
+  await db.from('quiz_attempts').delete().eq('meeting_id', id);
+  await db.from('meeting_questions').delete().eq('meeting_id', id);
+  await db.from('meetings').delete().eq('id', id);
+  toast('Meeting deleted.');
+  renderMeetings();
+}
+
+let _quizMeetingId = null;
+let _quizQuestions = [];
+
+async function openQuiz(meetingId) {
+  _quizMeetingId = meetingId;
+  const { data: qs } = await db.from('meeting_questions').select('*').eq('meeting_id', meetingId).order('created_at');
+  _quizQuestions = qs || [];
+  if (!_quizQuestions.length) { toast('No quiz questions yet.', 'error'); return; }
+  const { data: mtg } = await db.from('meetings').select('title, quiz_points').eq('id', meetingId).single();
+  document.getElementById('quiz-modal-title').textContent = `Quiz — ${mtg?.title||'Meeting'}`;
+  document.getElementById('quiz-pts-note').textContent = `Score 70% or higher to earn ${mtg?.quiz_points||1} attendance pt`;
+  document.getElementById('quiz-questions-display').innerHTML = _quizQuestions.map((q, i) => `
+    <div style="margin-bottom:18px;padding:14px;background:var(--ground);border-radius:var(--radius-sm)">
+      <div style="font-weight:500;color:var(--text);margin-bottom:10px">${i+1}. ${q.question}</div>
+      ${['a','b','c','d'].map(opt => `
+        <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;cursor:pointer;background:white"
+               onmouseover="this.style.borderColor='var(--navy)'" onmouseout="this.style.borderColor='var(--border)'">
+          <input type="radio" name="qr-${i}" id="qr-${i}-${opt}" value="${opt}" style="accent-color:var(--navy)">
+          <span style="font-size:13px"><strong style="color:var(--text-muted);text-transform:uppercase">${opt}.</strong> ${q['option_'+opt]}</span>
+        </label>`).join('')}
+    </div>`).join('');
+  openModal('modal-quiz');
+}
+
+async function submitQuiz() {
+  let correct = 0;
+  for (let i = 0; i < _quizQuestions.length; i++) {
+    const selected = document.querySelector(`input[name="qr-${i}"]:checked`);
+    if (!selected) { toast('Please answer all questions.', 'error'); return; }
+    if (selected.value === _quizQuestions[i].correct) correct++;
+  }
+  const score  = Math.round((correct / _quizQuestions.length) * 100);
+  const passed = score >= 70;
+  const { data: mtg } = await db.from('meetings').select('quiz_points, title').eq('id', _quizMeetingId).single();
+  const pts = mtg?.quiz_points || 1;
+  await db.from('quiz_attempts').insert({ meeting_id: _quizMeetingId, member_id: cu.id, score, passed });
+  if (passed && activeSemester?.id) {
+    const semPts = await getSemesterPts(cu.id, activeSemester.id);
+    await upsertSemesterPts(cu.id, activeSemester.id, { pts_attend: (semPts.pts_attend||0) + pts });
+    await db.from('history').insert({
+      member_id: cu.id, cat_key: 'attendance', cat_label: 'Meeting Attendance',
+      description: `Passed quiz: ${mtg?.title}`, points: pts,
+      date: today(), semester_id: activeSemester.id
+    });
+  }
+  closeModal('modal-quiz');
+  toast(passed
+    ? `✓ You passed with ${score}%! +${pts} attendance pt awarded.`
+    : `You scored ${score}% — 70% needed to pass. No points awarded.`,
+    passed ? 'success' : 'error');
+  renderMeetings();
+}
+  
 async function rejectSub(id) {
   await db.from('submissions').update({ status:'rejected' }).eq('id', id);
   toast('Submission rejected.', 'error');
@@ -1699,6 +2091,8 @@ function goodStandingChecklist(checks) {
 // ── SETTINGS ──
 async function renderSettings() {
   document.getElementById('set-goal').value    = settings.point_goal||100;
+  const qpEl = document.getElementById('set-quiz-pts');
+  if (qpEl) qpEl.value = settings.quiz_points||1;
   document.getElementById('gs-dues').value     = settings.gs_dues||1;
   document.getElementById('gs-meetings').value = settings.gs_meetings||3;
   document.getElementById('gs-service').value  = settings.gs_service||3;
@@ -1769,6 +2163,12 @@ async function saveGoodStanding() {
   toast('✓ Good standing requirements saved.');
 }
 
+  async function saveQuizPts() {
+  const v = parseInt(document.getElementById('set-quiz-pts').value);
+  if (!v||v<1) { toast('Enter at least 1.', 'error'); return; }
+  await saveSetting('quiz_points', v);
+  toast(`✓ Quiz points set to ${v}.`);
+}
 async function saveGoal() {
   const v = parseInt(document.getElementById('set-goal').value);
   if (!v||v<10) { toast('Set a goal of at least 10.', 'error'); return; }
