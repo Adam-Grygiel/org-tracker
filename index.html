@@ -739,6 +739,11 @@ tbody td { padding: 12px 12px; color: var(--text); vertical-align: middle; }
         <option value="no">No — just create it</option>
       </select>
     </div>
+    <div class="form-group">
+      <label class="form-label">Starting Balance ($)</label>
+      <input type="number" class="form-input" id="sem-balance" min="0" step="0.01" placeholder="e.g. 250.00"/>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Enter the account balance carried over from the previous semester.</div>
+    </div>
     <div class="alert alert-warn" style="margin-top:4px">Setting a new active semester will archive the current one. Member points reset for the new semester — old data is kept in history.</div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-semester')">Cancel</button>
@@ -1107,10 +1112,20 @@ async function renderDash() {
     const net = totalIn - totalOut;
     document.getElementById('fin-summary-card').style.display = '';
     document.getElementById('fin-sem-label').textContent = activeSemester.name;
+
+    const startBal     = parseFloat(activeSemester.starting_balance||0);
+    const accountTotal = startBal + net;
     document.getElementById('fin-stat-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Starting Balance</div><div class="stat-value" style="font-size:22px">$${startBal.toFixed(2)}</div></div>
       <div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value" style="color:var(--green);font-size:22px">$${totalIn.toFixed(2)}</div></div>
       <div class="stat-card"><div class="stat-label">Spent</div><div class="stat-value" style="color:var(--red);font-size:22px">$${totalOut.toFixed(2)}</div></div>
-      <div class="stat-card"><div class="stat-label">Net Balance</div><div class="stat-value" style="color:${net>=0?'var(--green)':'var(--red)'};font-size:22px">${net>=0?'+':''}$${net.toFixed(2)}</div></div>`;
+      <div class="stat-card"><div class="stat-label">Account Total</div><div class="stat-value" style="color:${accountTotal>=0?'var(--green)':'var(--red)'};font-size:22px;font-weight:700">$${accountTotal.toFixed(2)}</div></div>`;
+
+    
+    //document.getElementById('fin-stat-grid').innerHTML = `
+      //<div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value" style="color:var(--green);font-size:22px">$${totalIn.toFixed(2)}</div></div>
+      //<div class="stat-card"><div class="stat-label">Spent</div><div class="stat-value" style="color:var(--red);font-size:22px">$${totalOut.toFixed(2)}</div></div>
+      //<div class="stat-card"><div class="stat-label">Net Balance</div><div class="stat-value" style="color:${net>=0?'var(--green)':'var(--red)'};font-size:22px">${net>=0?'+':''}$${net.toFixed(2)}</div></div>`;
   } else {
     document.getElementById('fin-summary-card').style.display = 'none';
   }
@@ -1246,10 +1261,18 @@ async function renderTransactions() {
   const totalOut = (allTxns||[]).filter(t=>t.type==='out').reduce((s,t)=>s+parseFloat(t.amount||0),0);
   const net = totalIn - totalOut;
 
+  const startBal    = parseFloat(activeSemester.starting_balance||0);
+  const accountTotal = startBal + net;
   document.getElementById('txn-stat-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value" style="color:var(--green);font-size:22px">$${totalIn.toFixed(2)}</div><div class="stat-sub">${activeSemester.name}</div></div>
-    <div class="stat-card"><div class="stat-label">Total Spent</div><div class="stat-value" style="color:var(--red);font-size:22px">$${totalOut.toFixed(2)}</div></div>
-    <div class="stat-card"><div class="stat-label">Net Balance</div><div class="stat-value" style="color:${net>=0?'var(--green)':'var(--red)'};font-size:22px">${net>=0?'+':''}$${net.toFixed(2)}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Starting Balance</div><div class="stat-value" style="font-size:22px">$${startBal.toFixed(2)}</div><div class="stat-sub">carried in</div></div>
+    <div class="stat-card"><div class="stat-label">Collected</div><div class="stat-value" style="color:var(--green);font-size:22px">$${totalIn.toFixed(2)}</div><div class="stat-sub">${activeSemester.name}</div></div>
+    <div class="stat-card"><div class="stat-label">Spent</div><div class="stat-value" style="color:var(--red);font-size:22px">$${totalOut.toFixed(2)}</div></div>
+    <div class="stat-card"><div class="stat-label">Account Total</div><div class="stat-value" style="color:${accountTotal>=0?'var(--green)':'var(--red)'};font-size:22px;font-weight:700">$${accountTotal.toFixed(2)}</div><div class="stat-sub">start + in − out</div></div>`;
+  
+ // document.getElementById('txn-stat-grid').innerHTML = `
+   // <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value" style="color:var(--green);font-size:22px">$${totalIn.toFixed(2)}</div><div class="stat-sub">${activeSemester.name}</div></div>
+   // <div class="stat-card"><div class="stat-label">Total Spent</div><div class="stat-value" style="color:var(--red);font-size:22px">$${totalOut.toFixed(2)}</div></div>
+    //<div class="stat-card"><div class="stat-label">Net Balance</div><div class="stat-value" style="color:${net>=0?'var(--green)':'var(--red)'};font-size:22px">${net>=0?'+':''}$${net.toFixed(2)}</div></div>`;
 
   const catLabels    = { dues:'Chapter Dues', event_fee:'Event Fee', fundraiser:'Fundraiser', donation:'Donation', supplies:'Supplies', food:'Food & Drinks', event:'Event Costs', travel:'Travel', awards:'Awards', other:'Other' };
   const methodLabels = { cash:'Cash', venmo:'Venmo', zelle:'Zelle', check:'Check', card:'Card', other:'Other' };
@@ -2062,6 +2085,7 @@ async function renderSettings() {
       <div>
         <span style="font-weight:500;color:var(--text)">${s.name}</span>
         <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${fmtDate(s.start_date)} — ${fmtDate(s.end_date)}</span>
+        ${s.starting_balance>0?`<span style="font-size:11px;color:var(--green);margin-left:8px;font-family:'DM Mono',monospace">Starting: $${parseFloat(s.starting_balance).toFixed(2)}</span>`:''}
         ${s.is_active?'<span class="badge badge-approved" style="margin-left:8px">Active</span>':''}
       </div>
       ${!s.is_active?`<button class="btn btn-outline btn-sm" onclick="setActiveSemester('${s.id}')">Set Active</button>`:''}
@@ -2085,11 +2109,14 @@ async function saveSemester() {
   const makeActive = document.getElementById('sem-active').value === 'yes';
   if (!name||!start||!end) { toast('Name, start and end date are required.', 'error'); return; }
   if (makeActive) await db.from('semesters').update({ is_active: false }).eq('is_active', true);
-  const { error } = await db.from('semesters').insert({ name, start_date: start, end_date: end, is_active: makeActive });
+  //const { error } = await db.from('semesters').insert({ name, start_date: start, end_date: end, is_active: makeActive });
+  const startBal = parseFloat(document.getElementById('sem-balance').value)||0;
+  const { error } = await db.from('semesters').insert({ name, start_date: start, end_date: end, is_active: makeActive, starting_balance: startBal });
   if (error) { toast('Error creating semester.', 'error'); return; }
   await loadSemesters();
   closeModal('modal-semester');
-  ['sem-name','sem-start','sem-end'].forEach(id => document.getElementById(id).value = '');
+ // ['sem-name','sem-start','sem-end'].forEach(id => document.getElementById(id).value = '');
+  ['sem-name','sem-start','sem-end','sem-balance'].forEach(id => document.getElementById(id).value = '');
   const semBadge = document.getElementById('semester-badge');
   if (semBadge) semBadge.textContent = activeSemester?.name || 'No Active Semester';
   renderSettings();
